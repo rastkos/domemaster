@@ -13,6 +13,7 @@ extern int pad;
 float ap=PI_NUMB;// *180.0/180.0;
 float *xcoord[6];
 float *ycoord[6];
+int nnz[6] = {0,0,0,0,0,0};
 std::vector<int> xint;
 std::vector<int> yint;
 
@@ -52,7 +53,7 @@ std::vector<int> yint;
  */
 /*--------------------------------------------------------------------------*/
 float * image_warp_generic(float *image_in, int sizex, int sizey,
-			   char  *kernel_type, char proj, float alpha, float beta)
+			   const char  *kernel_type, char proj, float alpha, float beta)
 {
   //image_t    * image_out ;
   float *image_out;
@@ -88,23 +89,29 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
 
   float *xs;
   float *ys;
+  int n;
   switch (proj) {
   case 'B':
-    xs = xcoord[0]; ys = ycoord[0]; break;
+    xs = xcoord[0]; ys = ycoord[0]; n=nnz[0]; break;
   case 'D':
-    xs = xcoord[1]; ys = ycoord[1]; break;
+    xs = xcoord[1]; ys = ycoord[1]; n=nnz[1]; break;
   case 'F':
-    xs = xcoord[2]; ys = ycoord[2]; break;
+    xs = xcoord[2]; ys = ycoord[2]; n=nnz[2]; break;
   case 'L':
-    xs = xcoord[3]; ys = ycoord[3]; break;
+    xs = xcoord[3]; ys = ycoord[3]; n=nnz[3]; break;
   case 'R':
-    xs = xcoord[4]; ys = ycoord[4]; break;
+    xs = xcoord[4]; ys = ycoord[4]; n=nnz[4]; break;
   case 'U':
-    xs = xcoord[5]; ys = ycoord[5]; break;
+    xs = xcoord[5]; ys = ycoord[5]; n=nnz[5]; break;
   default:
     printf ("Error!!\n"); abort(); break;
   }
   
+  if (n==0) {
+    for (int i=0; i<lx_out*ly_out; i++) image_out[i]=0.0;
+    return (image_out);
+  }
+
   /* Pre compute leaps for 16 closest neighbors positions */
   
   leaps[0] = -1 -   sizex; //image_in->lx ;
@@ -224,7 +231,7 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
   functions in this module. It must be deallocated using free().
  */
 /*--------------------------------------------------------------------------*/
-double * generate_interpolation_kernel(char * kernel_type)
+double * generate_interpolation_kernel(const char * kernel_type)
 {
   double  *	tab ;
   int     	i ;
@@ -491,8 +498,8 @@ void CalcTrans (int inwidth, int inheight, float alpha, float beta)
   for (int u=0; u<outwidth; u++)
     for (int v=0; v<outwidth; v++) {
       // Normalizing the coordinates of the output image between [-1,1]
-      float udot = 2.0*(float)u/(float)outwidth-1.0;
-      float vdot = 2.0*(float)v/(float)outheight-1.0;
+      float udot = 2.0*(float)u/(float)(outwidth-1.0)-1.0;
+      float vdot = 2.0*(float)v/(float)(outheight-1.0)-1.0;
       
       float phi = atan2(vdot,udot);
       float ruv = sqrt(udot*udot+vdot*vdot);
@@ -542,10 +549,10 @@ void CalcTrans (int inwidth, int inheight, float alpha, float beta)
 	  xcb = (float)np+0.5*(dx+1.0)*(float)(inwidth);
 	  ycb = (float)np+0.5*(dy+1.0)*(float)(inheight);
 	}
-	// D: BOTTOM/DOWN, i.e. z=-1;
+	// D: DOWN, i.e. z=-1;
 	if (z0<0.0) {
-	  dx = x0/z0;
-	  dy = y0/z0;
+	  dx = -x0/z0;
+	  dy = -y0/z0;
 	  xcd = (float)np+0.5*(dx+1.0)*(float)(inwidth);
 	  ycd = (float)np+0.5*(dy+1.0)*(float)(inheight);
 	}
@@ -593,28 +600,40 @@ void CalcTrans (int inwidth, int inheight, float alpha, float beta)
       while (true) {
 	(xcoord[2])[u+v*outwidth] = xcf;
 	(ycoord[2])[u+v*outwidth] = ycf;
-	if (xcf>=0.0 && ycf>=0.0)
+	if (xcf>=0.0 && ycf>=0.0) {
+	  nnz[2]++;
 	  break;
+	}
 	(xcoord[3])[u+v*outwidth] = xcl;
 	(ycoord[3])[u+v*outwidth] = ycl;
-	if (xcl>=0.0 && ycl>=0.0)
+	if (xcl>=0.0 && ycl>=0.0) {
+	  nnz[3]++;
 	  break;
+	}
 	(xcoord[4])[u+v*outwidth] = xcr;
 	(ycoord[4])[u+v*outwidth] = ycr;
-	if (xcr>=0.0 && ycr>=0.0)
+	if (xcr>=0.0 && ycr>=0.0) {
+	  nnz[4]++;
 	  break;
+	}
 	(xcoord[5])[u+v*outwidth] = xcu;
 	(ycoord[5])[u+v*outwidth] = ycu;
-	if (xcu>=0.0 && ycu>=0.0)
+	if (xcu>=0.0 && ycu>=0.0) {
+	  nnz[5]++;
 	  break;
+	}
 	(xcoord[0])[u+v*outwidth] = xcb;
 	(ycoord[0])[u+v*outwidth] = ycb;
-	if (xcb>=0.0 && ycb>=0.0)
+	if (xcb>=0.0 && ycb>=0.0) {
+	  nnz[0]++;
 	  break;
+	}
 	(xcoord[1])[u+v*outwidth] = xcd;
 	(ycoord[1])[u+v*outwidth] = ycd;
-	if (xcd>=0.0 || ycd>=0.0) 
+	if (xcd>=0.0 || ycd>=0.0) {
+	  nnz[1]++;
 	  break;
+	}
 	if (ruv<=1.0) {
 	    xint.push_back (u);
 	    yint.push_back (v);

@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([domemaster], [1.0], [reunanen@ftml.net])
+AC_INIT([domemaster], [0.2], [reunanen@ftml.net])
 AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_AUX_DIR([admin])
@@ -16,14 +16,8 @@ dnl AC_PROG_CPP
 dnl AM_PROG_CC_C_O
 AC_PROG_INSTALL
  
-AC_CHECK_HEADERS([fitsio.h])
-
-AC_CHECK_LIB(cfitsio, ffopen, [LIBS="$LIBS -lcfitsio -lm"], 
-  [AC_MSG_ERROR([Cannot find libcfitsio])], [-lm]
-)
-
-dnl ====== LUA =================================
-AC_CHECK_LIB(freeimage, FreeImage_Load, [LIBS="$LIBS -lfreeimage"],
+dnl ====== FreeImage =================================
+AC_CHECK_LIB(freeimage, FreeImage_Load, [LIBS="$LIBS -lfreeimage -lm"],
   [AC_MSG_ERROR([Cannot find libfreeimage])]
 )
 
