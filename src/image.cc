@@ -1,10 +1,19 @@
 #include "FreeImage.h"
 #include "image.h"
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 
-Image::Image (const char *name)
-  :width(0), height(0), bpp(0), red(NULL), green(NULL), blue(NULL), alpha(NULL)
+extern bool discard_alpha;
+extern OUTPUT_TYPE outtype;
+extern Output output[4];
+
+Image::Image (const char *name, int pad)
+  :width(0), height(0), bpp(0), red(NULL), green(NULL), blue(NULL), 
+   alpha(NULL), proj(UNKNOWN)
 {
-  if (name!=NULL) {
+  imname = name;
+  if (imname!=NULL) {
     FREE_IMAGE_FORMAT fif  = FreeImage_GetFileType (imname);
     if (fif == FIF_UNKNOWN) {
       printf ("File %s:Unknown filetype\nAborting\n",  imname);
@@ -32,6 +41,9 @@ Image::Image (const char *name)
     }
     width = FreeImage_GetWidth (bitmap1);
     height = FreeImage_GetHeight (bitmap1);
+    int pwidth=width+2*pad;
+    int pheight=height+2*pad;
+    int npix_in=pwidth*pheight;
     
     BYTE *bits1 = FreeImage_GetBits (bitmap1);
     
@@ -59,6 +71,19 @@ Image::Image (const char *name)
     else
       alpha = NULL;
   
+    if (!strncmp (imname, "b_", 2))
+      proj = BACK;
+    else if (!strncmp (imname, "d_", 2))
+      proj = DOWN;
+    else if (!strncmp (imname, "f_", 2)) 
+      proj = FRONT;
+    else if (!strncmp (imname, "l_", 2))
+      proj = LEFT;
+    else if (!strncmp (imname, "r_", 2))
+      proj = RIGHT;
+    else if (!strncmp (imname, "u_", 2))
+      proj = UP;
+    
     FreeImage_Unload (bitmap1);
   }
 }

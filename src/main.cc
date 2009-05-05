@@ -15,6 +15,7 @@
 #include "main.h"
 #include "eclipse_types.h"
 #include "../config.h"
+#include "image.h"
 
 #ifndef EXIT_FAILURE
 #define EXIT_FAILURE 1

@@ -14,17 +14,6 @@ inline BYTE CastFloat (float f)
     return (255);
 
   return ((BYTE)roundf(f));
-}  
-
-enum OUTPUT_TYPE  { OUTPUT_PNG=0, OUTPUT_TARGA, OUTPUT_BMP, OUTPUT_JPEG };
-
-class Output {
- public:
-  const char *name;
-  FREE_IMAGE_FORMAT fif;
-  int flags;
-  bool alpha;
-};
-  
+}    
 
 #endif
