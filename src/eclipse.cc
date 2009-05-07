@@ -52,15 +52,18 @@ std::vector<int> yint;
 
  */
 /*--------------------------------------------------------------------------*/
-float * image_warp_generic(float *image_in, int sizex, int sizey,
-			   const char  *kernel_type, char proj, float alpha, float beta)
+Image* image_warp_generic (const Image *inimage,
+			   const char  *kernel_type)
 {
   //image_t    * image_out ;
-  float *image_out;
+  Image *outimage;
   int          i, j, k ;
   int          lx_out, ly_out ;
-  double       cur ;
-  double       neighbors[16] ;
+  double       curred, curgreen, curblue, curalpha ;
+  double      neighbors_red[16] ;
+  double      neighbors_green[16] ;
+  double      neighbors_blue[16] ;
+  double      neighbors_alpha[16] ;
   double       rsc[8],
     sumrs ;
   double       x, y ;
@@ -71,7 +74,7 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
   int          leaps[16] ;
   
   // if (image_in == NULL) return NULL ;
-  if (image_in == NULL) return NULL ;
+  if (inimage == NULL) return NULL ;
   
   /* Generate default interpolation kernel */
   kernel = generate_interpolation_kernel(kernel_type) ;
@@ -85,34 +88,44 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
   lx_out = (int)outwidth ;
   ly_out = (int)outheight;
   
-  image_out = new float[lx_out*ly_out]; 
+  outimage = new Image(lx_out, ly_out, inimage->bpp); 
 
   float *xs;
   float *ys;
   int n;
-  switch (proj) {
-  case 'B':
+  switch (inimage->proj) {
+  case BACK:
     xs = xcoord[0]; ys = ycoord[0]; n=nnz[0]; break;
-  case 'D':
+  case DOWN:
     xs = xcoord[1]; ys = ycoord[1]; n=nnz[1]; break;
-  case 'F':
+  case FRONT:
     xs = xcoord[2]; ys = ycoord[2]; n=nnz[2]; break;
-  case 'L':
+  case LEFT:
     xs = xcoord[3]; ys = ycoord[3]; n=nnz[3]; break;
-  case 'R':
+  case RIGHT:
     xs = xcoord[4]; ys = ycoord[4]; n=nnz[4]; break;
-  case 'U':
+  case UP:
     xs = xcoord[5]; ys = ycoord[5]; n=nnz[5]; break;
   default:
-    printf ("Error!!\n"); abort(); break;
+    n=0; break;
   }
   
   if (n==0) {
-    for (int i=0; i<lx_out*ly_out; i++) image_out[i]=0.0;
-    return (image_out);
+    for (int i=0; i<lx_out*ly_out; i++) {
+      outimage->red[i]=0.0;
+      outimage->blue[i]=0.0;
+      outimage->green[i]=0.0;
+    }
+    if (inimage->alpha!=NULL)
+      for (int i=0; i<lx_out*ly_out; i++) 
+	outimage->alpha[i]=0.0;
+    return (outimage);
   }
 
   /* Pre compute leaps for 16 closest neighbors positions */
+
+  int sizex = (inimage->width+2*inimage->pad);
+  int sizey = (inimage->height+2*inimage->pad);
   
   leaps[0] = -1 -   sizex; //image_in->lx ;
   leaps[1] =    -   sizex; //image_in->lx ;
@@ -131,8 +144,6 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
   leaps[6] =  1 ;
   leaps[7] =  2 ;
   
-  float res[2];
-
   /* Double loop on the output image  */
   for (i=0 ; i< lx_out ; i++) {
     for (j=0 ; j < ly_out ; j++) {
@@ -143,23 +154,33 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
       //y = res[1];
       x = xs[i+lx_out*j];
       y = ys[i+lx_out*j];
-
+ 
       /* Which is the closest integer positioned neighbor?    */
       px = (int)x ;
       py = (int)y ;
-      
+     
       if ((px < 1) ||
 	  (px > (sizex-3)) ||
 	  (py < 1) ||
-	  (py > (sizey-3)))
-	image_out[i+j*lx_out] = -1.0 ;
+	  (py > (sizey-3))) {
+	(outimage->red)[i+j*lx_out] = 0.0 ;
+	outimage->green[i+j*lx_out] = 0.0 ;
+	outimage->blue[i+j*lx_out] = 0.0 ;
+	if (outimage->alpha != NULL)
+	  outimage->alpha[i+j*lx_out] = 0.0 ;
+      }
       else {
 	/* Now feed the positions for the closest 16 neighbors  */
 	pos = px + py * sizex ;
-	for (k=0 ; k<16 ; k++)
-	  neighbors[k] = 
-	    (double)(image_in[(int)(pos+leaps[k])]) ;
-
+	for (k=0 ; k<16 ; k++) {
+	  neighbors_red[k]   = inimage->red[(int)(pos+leaps[k])] ;
+	  neighbors_green[k] = inimage->green[(int)(pos+leaps[k])] ;
+	  neighbors_blue[k]  = inimage->blue[(int)(pos+leaps[k])] ;
+	}
+	if (outimage->alpha != NULL)
+	  for (k=0 ; k<16 ; k++) 
+	    neighbors_alpha[k] = inimage->alpha[(int)(pos+leaps[k])] ;
+	  
 	/* Which tabulated value index shall we use?    */
 	tabx = (int)((x - (double)px) * (double)(TABSPERPIX)) ;
 	taby = (int)((y - (double)py) * (double)(TABSPERPIX)) ;
@@ -180,31 +201,84 @@ float * image_warp_generic(float *image_in, int sizex, int sizey,
 	  (rsc[4]+rsc[5]+rsc[6]+rsc[7]) ;
 	
 	/* Compute interpolated pixel now   */
-	cur =   rsc[4] * (  rsc[0]*neighbors[0] +
-			    rsc[1]*neighbors[1] +
-			    rsc[2]*neighbors[2] +
-			    rsc[3]*neighbors[3] ) +
-	  rsc[5] * (  rsc[0]*neighbors[4] +
-		      rsc[1]*neighbors[5] +
-		      rsc[2]*neighbors[6] +
-		      rsc[3]*neighbors[7] ) +
-	  rsc[6] * (  rsc[0]*neighbors[8] +
-		      rsc[1]*neighbors[9] +
-		      rsc[2]*neighbors[10] +
-		      rsc[3]*neighbors[11] ) +
-	  rsc[7] * (  rsc[0]*neighbors[12] +
-		      rsc[1]*neighbors[13] +
-		      rsc[2]*neighbors[14] +
-		      rsc[3]*neighbors[15] ) ; 
+	curred =   rsc[4] * (  rsc[0]*neighbors_red[0] +
+			       rsc[1]*neighbors_red[1] +
+			       rsc[2]*neighbors_red[2] +
+			       rsc[3]*neighbors_red[3] ) +
+	  rsc[5] * (  rsc[0]*neighbors_red[4] +
+		      rsc[1]*neighbors_red[5] +
+		      rsc[2]*neighbors_red[6] +
+		      rsc[3]*neighbors_red[7] ) +
+	  rsc[6] * (  rsc[0]*neighbors_red[8] +
+		      rsc[1]*neighbors_red[9] +
+		      rsc[2]*neighbors_red[10] +
+		      rsc[3]*neighbors_red[11] ) +
+	  rsc[7] * (  rsc[0]*neighbors_red[12] +
+		      rsc[1]*neighbors_red[13] +
+		      rsc[2]*neighbors_red[14] +
+		      rsc[3]*neighbors_red[15] ) ; 
+	curblue =   rsc[4] * ( rsc[0]*neighbors_blue[0] +
+			       rsc[1]*neighbors_blue[1] +
+			       rsc[2]*neighbors_blue[2] +
+			       rsc[3]*neighbors_blue[3] ) +
+	  rsc[5] * (  rsc[0]*neighbors_blue[4] +
+		      rsc[1]*neighbors_blue[5] +
+		      rsc[2]*neighbors_blue[6] +
+		      rsc[3]*neighbors_blue[7] ) +
+	  rsc[6] * (  rsc[0]*neighbors_blue[8] +
+		      rsc[1]*neighbors_blue[9] +
+		      rsc[2]*neighbors_blue[10] +
+		      rsc[3]*neighbors_blue[11] ) +
+	  rsc[7] * (  rsc[0]*neighbors_blue[12] +
+		      rsc[1]*neighbors_blue[13] +
+		      rsc[2]*neighbors_blue[14] +
+		      rsc[3]*neighbors_blue[15] ) ; 
+	curgreen =   rsc[4] * (rsc[0]*neighbors_green[0] +
+			       rsc[1]*neighbors_green[1] +
+			       rsc[2]*neighbors_green[2] +
+			       rsc[3]*neighbors_green[3] ) +
+	  rsc[5] * (  rsc[0]*neighbors_green[4] +
+		      rsc[1]*neighbors_green[5] +
+		      rsc[2]*neighbors_green[6] +
+		      rsc[3]*neighbors_green[7] ) +
+	  rsc[6] * (  rsc[0]*neighbors_green[8] +
+		      rsc[1]*neighbors_green[9] +
+		      rsc[2]*neighbors_green[10] +
+		      rsc[3]*neighbors_green[11] ) +
+	  rsc[7] * (  rsc[0]*neighbors_green[12] +
+		      rsc[1]*neighbors_green[13] +
+		      rsc[2]*neighbors_green[14] +
+		      rsc[3]*neighbors_green[15] ) ; 
+	if (outimage->alpha != NULL) 
+	  curalpha =   rsc[4] * (  rsc[0]*neighbors_alpha[0] +
+				   rsc[1]*neighbors_alpha[1] +
+				   rsc[2]*neighbors_alpha[2] +
+				   rsc[3]*neighbors_alpha[3] ) +
+	    rsc[5] * (  rsc[0]*neighbors_alpha[4] +
+			rsc[1]*neighbors_alpha[5] +
+			rsc[2]*neighbors_alpha[6] +
+			rsc[3]*neighbors_alpha[7] ) +
+	    rsc[6] * (  rsc[0]*neighbors_alpha[8] +
+			rsc[1]*neighbors_alpha[9] +
+			rsc[2]*neighbors_alpha[10] +
+			rsc[3]*neighbors_alpha[11] ) +
+	    rsc[7] * (  rsc[0]*neighbors_alpha[12] +
+			rsc[1]*neighbors_alpha[13] +
+			rsc[2]*neighbors_alpha[14] +
+			rsc[3]*neighbors_alpha[15] ) ; 
 	
 	/* Affect the value to the output image */
-	image_out[i+j*lx_out] = (pixelvalue)(cur/sumrs) ;
+	outimage->red[i+j*lx_out] = (pixelvalue)(curred/sumrs) ;
+	outimage->green[i+j*lx_out] = (pixelvalue)(curgreen/sumrs) ;
+	outimage->blue[i+j*lx_out] = (pixelvalue)(curblue/sumrs) ;
+	if (outimage->alpha != NULL) 
+	  outimage->alpha[i+j*lx_out] = (pixelvalue)(curalpha/sumrs) ;
 	/* done ! */
-      }       
+      }      
     }
   }
   free(kernel) ;
-  return image_out ;
+  return outimage ;
 }
 
 

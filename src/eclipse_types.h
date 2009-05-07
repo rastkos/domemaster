@@ -1,6 +1,8 @@
 #ifndef _ECLIPSE_TYPES_H_
 #define _ECLIPSE_TYPES_H_
 
+#include "image.h"
+
 typedef float   pixelvalue ;
 #define TABSPERPIX      (1000)
 #define KERNEL_WIDTH    (2.0)
@@ -14,8 +16,7 @@ double sinc(double x);
 void reverse_tanh_kernel(double * data, int nn);
 void trans (float *res, char ttype, int u, int v, int nx, int ny, float alpha, float beta);
 
-float * image_warp_generic(float *image_in, int sizex, int sizey,
-			   const char *kernel_type, char proj, float alpha, float beta);
+Image * image_warp_generic(const Image *image_in, const char *kernel_type);
 void CalcTrans (int inwidth, int inheight, float alpha=0.0, float beta=0.0);
 void FreeTrans ();
 

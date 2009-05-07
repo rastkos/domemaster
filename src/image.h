@@ -1,6 +1,8 @@
 #ifndef IMAGE_H
 #define IMAGE_H
 
+#include "FreeImage.h"
+
 enum PROJTYPE {UNKNOWN=0,FRONT, BACK, LEFT, RIGHT, UP, DOWN};
 enum OUTPUT_TYPE  { OUTPUT_PNG=0, OUTPUT_TARGA, OUTPUT_BMP, OUTPUT_JPEG };
 
@@ -15,6 +17,7 @@ class Output {
 class Image {
  public:
   Image (const char *, int);
+  Image (int, int, int);
   ~Image ();
 
   int width;
@@ -27,7 +30,11 @@ class Image {
   float *alpha;
   PROJTYPE proj;
   const char* imname;
+  int cpi;
+  int pad;
 
+  bool operator == (const Image & d );
+  bool operator += (const Image & d );
  private:
   Image ();
 };

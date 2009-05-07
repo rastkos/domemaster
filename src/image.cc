@@ -8,9 +8,24 @@ extern bool discard_alpha;
 extern OUTPUT_TYPE outtype;
 extern Output output[4];
 
-Image::Image (const char *name, int pad)
+Image::Image (int w, int h, int b)
+  : width(w), height(h), bpp(b), red(NULL), green(NULL), blue(NULL), 
+    alpha(NULL), proj(UNKNOWN), pad(0)
+{
+  red   = new float[h*w];
+  blue  = new float[h*w];
+  green = new float[h*w];
+  if (b==32) {
+    cpi = 4;
+    alpha = new float[h*w];
+  }
+  else
+    cpi=3;
+}
+
+Image::Image (const char *name, int npad)
   :width(0), height(0), bpp(0), red(NULL), green(NULL), blue(NULL), 
-   alpha(NULL), proj(UNKNOWN)
+   alpha(NULL), proj(UNKNOWN), pad(npad)
 {
   imname = name;
   if (imname!=NULL) {
@@ -22,7 +37,7 @@ Image::Image (const char *name, int pad)
     FIBITMAP *bitmap1 = FreeImage_Load (fif, imname);
     FREE_IMAGE_TYPE imtype1 = FreeImage_GetImageType (bitmap1);
     bool fail = false;
-    int cpi;
+    cpi;
     
     bpp = FreeImage_GetBPP (bitmap1);
     if (bpp==24)
@@ -41,8 +56,8 @@ Image::Image (const char *name, int pad)
     }
     width = FreeImage_GetWidth (bitmap1);
     height = FreeImage_GetHeight (bitmap1);
-    int pwidth=width+2*pad;
-    int pheight=height+2*pad;
+    int pwidth=width+2*npad;
+    int pheight=height+2*npad;
     int npix_in=pwidth*pheight;
     
     BYTE *bits1 = FreeImage_GetBits (bitmap1);
@@ -50,23 +65,23 @@ Image::Image (const char *name, int pad)
     red = new float[npix_in];
     for (int i = 0; i<width; i++) 
       for (int j = 0; j<height; j++) 
-	red[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_RED];
+	red[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_RED];
     
     green = new float[npix_in];
     for (int i = 0; i<width; i++) 
       for (int j = 0; j<height; j++) 
-	green[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_GREEN];
+	green[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_GREEN];
     
     blue = new float[npix_in];
     for (int i = 0; i<width; i++) 
       for (int j = 0; j<height; j++) 
-	blue[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_BLUE];
+	blue[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_BLUE];
     
     if (cpi==4) {
       alpha = new float[npix_in];
       for (int i = 0; i<width; i++) 
 	for (int j = 0; j<height; j++) 
-	  alpha[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_ALPHA];
+	  alpha[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_ALPHA];
     }
     else
       alpha = NULL;
@@ -98,6 +113,34 @@ Image::~Image ()
     delete[] blue;
   if (alpha!=NULL)
     delete[] alpha;
+}
 
+bool Image::operator == (const Image & d )
+{
+  // Comparison with empty images is ok
+  if (red==NULL || d.red==NULL)
+    return (true);
 
+  if (height != d.height || width != d.width || bpp!=d.bpp)
+    return (false);
+
+  if ( (alpha!=NULL && d.alpha==NULL) ||
+       (alpha==NULL && d.alpha!=NULL) )
+    return (false);
+
+  return (true);
+}
+
+bool Image::operator += (const Image & d )
+{
+  if (d.red != NULL) {
+    for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
+      red[i]   += d.red[i];
+      green[i] += d.green[i];
+      blue[i]  += d.blue[i];
+    }
+    if (alpha!=NULL) 
+      for (int i=0; i< (height+2*pad)*(width+2*pad); i++) 
+	alpha[i] += d.alpha[i];
+  }
 }

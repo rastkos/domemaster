@@ -26,12 +26,13 @@
 
 int main( int argc, char ** argv );
 void Help (void);
+void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Image *up, 
+	  bool padseams);
 
-float *data[24];
 bool verbose = false;
 bool discard_alpha = false;
 bool padseams = true;
-int pad = 3;
+int pad = 4;
 OUTPUT_TYPE outtype = OUTPUT_PNG;
 char buffer[64];
 const char *root = "del";
@@ -157,17 +158,15 @@ int main( int argc, char ** argv )
   }
 
   // Fill vectors with file names
-  std::vector<const char*> bfiles, dfiles, ffiles, lfiles, rfiles, ufiles, roots;
+  std::vector<const char*> bfiles, dfiles, ffiles, lfiles, rfiles, ufiles;
   if (optind < argc ) {
     for (int i=optind; i<argc; i++) {
       if (!strncmp (argv[i], "b_", 2))
 	bfiles.push_back (argv[i]);
       else if (!strncmp (argv[i], "d_", 2))
 	dfiles.push_back (argv[i]);
-      else if (!strncmp (argv[i], "f_", 2)) {
+      else if (!strncmp (argv[i], "f_", 2)) 
 	ffiles.push_back (argv[i]);
-	roots.push_back( &(argv[i])[2]);
-      }
       else if (!strncmp (argv[i], "l_", 2))
 	lfiles.push_back (argv[i]);
       else if (!strncmp (argv[i], "r_", 2))
@@ -177,8 +176,7 @@ int main( int argc, char ** argv )
     }
   }
 
-  //
-  unsigned int nn = roots.size();
+  unsigned int nn = ffiles.size();
 
   if (nn==0) {
     printf ("No f-files given!\n");
@@ -194,165 +192,51 @@ int main( int argc, char ** argv )
 
 
   }
-  for (unsigned int i=0; i<roots.size(); i++) 
-    printf ("%s\n", roots[i]);
-
-
-  
 
   FreeImage_Initialise ();
 
-  
-  //  for (unsigned index=0; index<roots.size(); index++) {
-
-    int width,height, bpp;
-    gettimeofday (&tv1, NULL);
-    for (int image = 0; image<nimages; image++) {
-      const char *imname = argv[optind+image];
-      printf ("%s\n", imname);
-      
-      FREE_IMAGE_FORMAT fif  = FreeImage_GetFileType (imname);
-      if (fif == FIF_UNKNOWN) {
-	printf ("File %s:Unknown filetype\nAborting\n",  imname);
-	abort ();
-      }
-      FIBITMAP *bitmap1 = FreeImage_Load (fif, imname);
-      FREE_IMAGE_TYPE imtype1 = FreeImage_GetImageType (bitmap1);
-      bool fail = false;
-      
-      if (image == 0) {
-	bpp = FreeImage_GetBPP (bitmap1);
-	if (bpp==24)
-	  cpi = 3;
-	else if (bpp==32) {
-	  if (!output[outtype].alpha && !discard_alpha) {
-	    printf ("The specified file format does not support alpha channel\n"
-		    "Switching to png instead\n");
-	    outtype = OUTPUT_PNG;
-	  }
-	  cpi = 4;
-	}
-	else {
-	  fail = true;
-	  printf ("Only 24 or 32 bit images are supported\n");
-	}
-	width = FreeImage_GetWidth (bitmap1);
-	height = FreeImage_GetHeight (bitmap1);
-	if (width != height) {
-	  fail = true;
-	  printf ("Only square images are supported - %dx%d\n", width, height);
-	}
-	npix_in = (width+2*pad)*(height+2*pad);
-	pwidth = width+2*pad;
-	pheight = height+2*pad;
-      }
-      else {
-	int bpp1 = FreeImage_GetBPP (bitmap1);
-	int width1 = FreeImage_GetWidth (bitmap1);
-	int height1 = FreeImage_GetHeight (bitmap1);
-	if (bpp!=bpp1 || width!=width1 || height!=height1) {
-	  printf ("Images do not have identical sizes or bpps\n");
-	  fail = true;
-	}
-      }
-      if (fail) {
-	FreeImage_Unload (bitmap1);
-	FreeImage_DeInitialise ();
-	for (int i=0; i<cpi*image; i++)
-	  if (data[i]!=NULL)
-	    delete[] data[i];
-	abort ();
-      }
-      
-      BYTE *bits1 = FreeImage_GetBits (bitmap1);
-      
-      data[4*image] = new float[npix_in];
-      for (int i = 0; i<width; i++) 
-	for (int j = 0; j<height; j++) 
-	  (data[4*image])[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_RED];
-      
-      data[4*image+1] = new float[npix_in];
-      for (int i = 0; i<width; i++) 
-	for (int j = 0; j<height; j++) 
-	  (data[4*image+1])[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_GREEN];
-      
-      data[4*image+2] = new float[npix_in];
-      for (int i = 0; i<width; i++) 
-	for (int j = 0; j<height; j++) 
-	  (data[4*image+2])[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_BLUE];
-      
-      if (cpi==4) {
-	data[4*image+3] = new float[npix_in];
-	for (int i = 0; i<width; i++) 
-	  for (int j = 0; j<height; j++) 
-	    (data[cpi*image+3])[i+pad+pwidth*(j+pad)] = bits1[cpi*(i+j*width)+FI_RGBA_ALPHA];
-      }
-      else
-	data[4*image+3] = NULL;
-      
-      FreeImage_Unload (bitmap1);
-    }
-    // printf ("Images loaded successfully\n");
+  for (unsigned index=0; index<ffiles.size(); index++) {
+    Image *front = new Image(ffiles[index], pad);
+    Image *back;
+    Image *left;
+    Image *right;
+    Image *up;
+    Image *down;
     
-    // WAS: B, D, F, L, R, U
-    // NOW: F, B, D, L, R, U
-    // SO: 0+k -> 4+k
-    //     4+k -> 8+k
-    //     8+k -> 0+k
-    if (pad>0 && padseams) {
-      for (int k=0; k<cpi; k++)
-	for (int i=0; i<pad; i++)
-	  for (int j=pad; j<pad+height; j++) {
-	    (data[0+k])[i+pwidth*j] = (data[12+k])[pwidth-2*pad+i+pwidth*j]; 
-	    (data[4+k])[i+pwidth*j] = (data[16+k])[pwidth-2*pad+i+pwidth*j];
-	    (data[0+k])[pwidth-pad+i+pwidth*j] = (data[16+k])[pad+i+pwidth*j];
-	    (data[4+k])[pwidth-pad+i+pwidth*j] = (data[12+k])[pad+i+pwidth*j];
-	    (data[12+k])[pwidth-pad+i+pwidth*j] = (data[0+k])[pad+i+pwidth*j];
-	    (data[12+k])[i+pwidth*j] = (data[4+k])[pwidth-2*pad+i+pwidth*j];
-	    (data[16+k])[i+pwidth*j] = (data[0+k])[pwidth-2*pad+i+pwidth*j];
-	    (data[16+k])[pwidth-pad+i+pwidth*j] = (data[4+k])[pad+i+pwidth*j];
-	  }
-      for (int k=0; k<cpi; k++)
-	for (int j=0; j<pad; j++)
-	  for (int i=pad; i<pad+width; i++) {
-	    (data[0+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[i+pwidth*(pheight-2*pad+j)];
-	    (data[20+k])[i+pwidth*(pheight-pad+j)] = (data[0+k])[i+pwidth*(pheight-2*pad+j)];
-	    (data[4+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[pwidth-i+pwidth*(pad+j)];
-	    (data[20+k])[i+pwidth*j] = (data[4+k])[pwidth-i+pwidth*(pheight-2*pad+j)];
-	    (data[12+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[j+pad+pwidth*(i)];
-	    (data[20+k])[j+pwidth*(i)] = (data[12+k])[i+pwidth*(j+pheight-2*pad)];
-	    (data[16+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[pheight-2*pad+j+pwidth*(pheight-i)];
-	    (data[20+k])[pheight-pad+j+pwidth*(pheight-i)] = (data[16+k])[i+pwidth*(pheight-2*pad+j)];
-	    (data[4+k])[i+pwidth*(j)] = (data[8+k])[pwidth-i+pwidth*(pad+j)];
-	    (data[8+k])[i+pwidth*(pheight-pad+j)] = (data[4+k])[i+pwidth*(j+pad)];
-	    (data[0+k])[i+pwidth*(j)] = (data[8+k])[i+pwidth*(pheight-2*pad+j)];
-	    (data[8+k])[pwidth-i+pwidth*(j)] = (data[0+k])[i+pwidth*(pad+j)];
-	    (data[16+k])[i+pwidth*(j)] = (data[8+k])[pheight-2*pad+j+pwidth*(pwidth-i)];
-	    (data[8+k])[j+pwidth*(i)] = (data[16+k])[i+pwidth*(j+pad)];	  
-	    (data[12+k])[i+pwidth*(j)] = (data[8+k])[j+pad+pwidth*(i)];
-	    (data[8+k])[pheight-pad+j+pwidth*(pwidth-i)] = (data[12+k])[i+pwidth*(j+pad)];
-	  }
-      
-      //HACKY solution to the problem with dark pixels...
-      for (int k=0; k<24; k++) {
-	if (!(cpi==3 && k%4==3) ) {
-	  for (int i=0; i<pad; i++) {
-	    (data[k])[i+pwidth*(pad-1)] = (data[0+k])[i+pwidth*(pad)];
-	    (data[k])[i+pwidth*(pheight-pad)] = (data[0+k])[i+pwidth*(pheight-pad-1)];
-	    (data[k])[pwidth-i-1+pwidth*(pad-1)] = (data[0+k])[pwidth-i-1+pwidth*(pad)];
-	    (data[k])[pwidth-1-i+pwidth*(pheight-pad)] = (data[0+k])[pwidth-1-i+pwidth*(pheight-pad-1)];
-	  }
-	  for (int j=0; j<pad; j++) {
-	    (data[k])[pad-1+pwidth*(j)] = (data[k])[pad+pwidth*(j)];
-	    (data[k])[pwidth-pad+pwidth*(j)] = (data[k])[pwidth-pad-1+pwidth*(j)];
-	    (data[k])[pad-1+pwidth*(pheight-1-j)] = (data[k])[pad+pwidth*(pheight-1-j)];
-	    (data[k])[pwidth-pad+pwidth*(pheight-1-j)] = (data[k])[pwidth-pad-1+pwidth*(pheight-1-j)];
-	  }
-	}
-      }
-    }
+    gettimeofday (&tv1, NULL);
+    if (bfiles.size()==ffiles.size())
+      back = new Image (bfiles[index], pad);
+    else
+      back = new Image (NULL, pad);
 
-    //if (index==0) {
+    if (lfiles.size()==ffiles.size())
+      left = new Image (lfiles[index], pad);
+    else
+      left = new Image (NULL, pad);
+
+    if (rfiles.size()==ffiles.size())
+      right = new Image (rfiles[index], pad);
+    else
+      right = new Image (NULL, pad);
+
+    if (dfiles.size()==ffiles.size())
+      down = new Image (dfiles[index], pad);
+    else
+      down = new Image (NULL, pad);
+
+    if (ufiles.size()==ffiles.size())
+      up = new Image (ufiles[index], pad);
+    else
+      up = new Image (NULL, pad);
+
+    if ( ! (*front == *back && *front == *left
+	    && *front == *right && *front == *up && *front == *down ) )
+      printf ("OOH\n");
+
+    Pad (front, back, left, right, down, up, padseams);
+
+
+    if (index==0) {
       if (verbose) {
 	gettimeofday (&tv2, NULL);
 	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
@@ -360,7 +244,7 @@ int main( int argc, char ** argv )
 	
 	gettimeofday (&tv1, NULL);
       }
-      CalcTrans (width, height, alpha, beta);
+      CalcTrans (front->width, front->height, alpha, beta);
       if (verbose) {
 	gettimeofday (&tv2, NULL);
 	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
@@ -368,64 +252,74 @@ int main( int argc, char ** argv )
 	
 	gettimeofday (&tv1, NULL);
       }
-      //}
-
-    float * outalpha;
-    gettimeofday (&tv2, NULL);
-    float* outred   =  image_warp_generic(data[0], pwidth, pheight, kernel, op[0], 0.0, 0.0);
-    float* outgreen =  image_warp_generic(data[1], pwidth, pheight, kernel, op[0], 0.0, 0.0);
-    float* outblue  =  image_warp_generic(data[2], pwidth, pheight, kernel, op[0], 0.0, 0.0);
-    if (cpi==4) 
-      outalpha = image_warp_generic(data[3], pwidth, pheight, kernel, op[0], 0.0, 0.0);
-    
-    float *out1;
-    for (int j=1; j<nimages; j++) {
-      out1 =  image_warp_generic(data[4*j], pwidth, pheight, kernel, op[j], 0.0, 0.0);
-      for (int i=0; i<outwidth*outheight; i++) outred[i]+=out1[i];
-      delete[] out1;
-      out1 =  image_warp_generic(data[4*j+1], pwidth, pheight, kernel, op[j], 0.0, 0.0);
-      for (int i=0; i<outwidth*outheight; i++) outgreen[i]+=out1[i];
-      delete[] out1;
-      out1 =  image_warp_generic(data[4*j+2], pwidth, pheight, kernel, op[j], 0.0, 0.0);
-      for (int i=0; i<outwidth*outheight; i++) outblue[i]+=out1[i];
-      delete[] out1;
-      if (cpi==4) {
-	out1 =  image_warp_generic(data[4*j+3], pwidth, pheight, kernel, op[j], 0.0, 0.0);
-	for (int i=0; i<outwidth*outheight; i++) outalpha[i]+=out1[i];
-	delete[] out1;
-      }
     }
+    gettimeofday (&tv2, NULL);
+
+    Image *out = image_warp_generic(front, kernel);
+ 
+    Image *out1 = image_warp_generic(back, kernel);
+    *out += *out1;
+    delete out1;
+
+    out1 = image_warp_generic(left, kernel);
+    *out += *out1;
+    delete out1;
+
+    out1 = image_warp_generic(right, kernel);
+    *out += *out1;
+    delete out1;
+
+    out1 = image_warp_generic(up, kernel);
+    *out += *out1;
+    delete out1;
+
+    out1 = image_warp_generic(down, kernel);
+    *out += *out1;
+    delete out1;
     
     if (verbose) {
       gettimeofday (&tv2, NULL);
       t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
       printf ("Interpolations took %ld milliseconds\n", t);
     }
+
+    cpi = front->cpi;
     
     // Construct and save output image
     gettimeofday (&tv1, NULL);
     FIBITMAP *outbitmap ;
-    if (bpp==32 && discard_alpha) {
+    if (front->bpp==32 && discard_alpha) {
       outbitmap = FreeImage_Allocate (outwidth, outheight, 24);
       BYTE *outbits = FreeImage_GetBits (outbitmap);
       for (int i = 0; i<outwidth*outheight; i++) {
-	outbits[3*i+FI_RGBA_RED] =   CastFloat (outred[i]);
-	outbits[3*i+FI_RGBA_GREEN] = CastFloat (outgreen[i]);
-	outbits[3*i+FI_RGBA_BLUE] =  CastFloat (outblue[i]);
+	outbits[3*i+FI_RGBA_RED] =   CastFloat (out->red[i]);
+	outbits[3*i+FI_RGBA_GREEN] = CastFloat (out->green[i]);
+	outbits[3*i+FI_RGBA_BLUE] =  CastFloat (out->blue[i]);
       }
     } else {
-      outbitmap = FreeImage_Allocate (outwidth, outheight, bpp);
+      outbitmap = FreeImage_Allocate (outwidth, outheight, front->bpp);
       BYTE *outbits = FreeImage_GetBits (outbitmap);
       for (int i = 0; i<outwidth*outheight; i++) {
-	outbits[cpi*i+FI_RGBA_RED] =   CastFloat (outred[i]);
-	outbits[cpi*i+FI_RGBA_GREEN] = CastFloat (outgreen[i]);
-	outbits[cpi*i+FI_RGBA_BLUE] =  CastFloat (outblue[i]);
+	outbits[cpi*i+FI_RGBA_RED] =   CastFloat (out->red[i]);
+	outbits[cpi*i+FI_RGBA_GREEN] = CastFloat (out->green[i]);
+	outbits[cpi*i+FI_RGBA_BLUE] =  CastFloat (out->blue[i]);
 	if (cpi == 4) 
-	  outbits[cpi*i+FI_RGBA_ALPHA] =   CastFloat (outalpha[i]);
+	  outbits[cpi*i+FI_RGBA_ALPHA] =   CastFloat (out->alpha[i]);
 	
       }
     }
-    sprintf (&buffer[0], "%s%s", root, output[outtype].name);
+    int ss = strlen(front->imname)-1;
+   
+    while (ss>0) {
+      if (front->imname[ss]=='.')
+	break;
+      ss--;
+    }
+    for (int i=2; i<ss; i++)
+      buffer[i-2] = front->imname[i];
+    buffer[ss-2] = 0;
+    strcat (&buffer[0], output[outtype].name);
+
     FreeImage_Save (output[outtype].fif, outbitmap, &buffer[0], output[outtype].flags);
     FreeImage_Unload (outbitmap);
     if (verbose) {
@@ -433,21 +327,169 @@ int main( int argc, char ** argv )
       t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
       printf ("Constructing and saving final image took %ld milliseconds\n", t);
     }
-    //}
+    delete out;
+    delete front;
+    delete back;
+    delete right;
+    delete left;
+    delete up;
+    delete down;
+  } 
 
-  // Cleanup
-  delete[] outred;
-  delete[] outblue;
-  delete[] outgreen;
-  if (cpi==4)
-    delete[] outalpha;
-  for (int i=0; i<18; i++)
-    if (data[i] != NULL)
-      delete[] data[i];
   FreeImage_DeInitialise ();
   FreeTrans ();
   
   return EXIT_SUCCESS;
+}
+
+void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Image *up, 
+	  bool padseams)
+{
+  int pad = front->pad;
+  int width = front->width;
+  int height = front->height;
+  int pwidth = width+2*pad;
+  int pheight = height+2*pad;
+  float *data[24];
+  int cpi = front->cpi;
+
+  data[0] = front->red;
+  data[1] = front->green;
+  data[2] = front->blue;
+  data[3] = front->alpha;
+
+  data[4] = back->red;
+  data[5] = back->green;
+  data[6] = back->blue;
+  data[7] = back->alpha;
+
+  data[8]  = down->red;
+  data[9]  = down->green;
+  data[10] = down->blue;
+  data[11] = down->alpha;
+
+  data[12] = left->red;
+  data[13] = left->green;
+  data[14] = left->blue;
+  data[15] = left->alpha;
+
+  data[16] = right->red;
+  data[17] = right->green;
+  data[18] = right->blue;
+  data[19] = right->alpha;
+
+  data[20] = up->red;
+  data[21] = up->green;
+  data[22] = up->blue;
+  data[23] = up->alpha;
+  if (padseams && pad>0) {
+    for (int k=0; k<cpi; k++)
+      for (int i=0; i<pad; i++)
+	for (int j=pad; j<pad+height; j++) {
+	  if (data[0]!=NULL && data[12]!=NULL) {
+	    (data[0+k])[i+pwidth*j] = (data[12+k])[pwidth-2*pad+i+pwidth*j]; 
+	    (data[12+k])[pwidth-pad+i+pwidth*j] = (data[0+k])[pad+i+pwidth*j];
+	  }
+	  if (data[4]!=NULL && data[16]!=NULL) {
+	    (data[4+k])[i+pwidth*j] = (data[16+k])[pwidth-2*pad+i+pwidth*j];
+	    (data[16+k])[pwidth-pad+i+pwidth*j] = (data[4+k])[pad+i+pwidth*j];
+	  }
+	  if (data[0]!=NULL && data[16]!=NULL) {
+	    (data[0+k])[pwidth-pad+i+pwidth*j] = (data[16+k])[pad+i+pwidth*j];
+	    (data[16+k])[i+pwidth*j] = (data[0+k])[pwidth-2*pad+i+pwidth*j];
+	  }
+	  if (data[4]!=NULL && data[12]!=NULL) {
+	    (data[4+k])[pwidth-pad+i+pwidth*j] = (data[12+k])[pad+i+pwidth*j];
+	    (data[12+k])[i+pwidth*j] = (data[4+k])[pwidth-2*pad+i+pwidth*j];
+	  }
+	}
+    for (int k=0; k<cpi; k++)
+      for (int j=0; j<pad; j++)
+	for (int i=pad; i<pad+width; i++) {
+	  if (data[0]!=NULL && data[20]!=NULL) {
+	    (data[0+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[i+pwidth*(pheight-2*pad+j)];
+	    (data[20+k])[i+pwidth*(pheight-pad+j)] = (data[0+k])[i+pwidth*(pheight-2*pad+j)];
+	  }
+	  if (data[4]!=NULL && data[20]!=NULL) {
+	    (data[4+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[pwidth-i+pwidth*(pad+j)];
+	    (data[20+k])[i+pwidth*j] = (data[4+k])[pwidth-i+pwidth*(pheight-2*pad+j)];
+	  }
+	  if (data[12]!=NULL && data[20]!=NULL) {
+	    (data[12+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[j+pad+pwidth*(i)];
+	    (data[20+k])[j+pwidth*(i)] = (data[12+k])[i+pwidth*(j+pheight-2*pad)];
+	  }
+	  if (data[16]!=NULL && data[20]!=NULL) {
+	    (data[16+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[pheight-2*pad+j+pwidth*(pheight-i)];
+	    (data[20+k])[pheight-pad+j+pwidth*(pheight-i)] = (data[16+k])[i+pwidth*(pheight-2*pad+j)];
+	  }
+	  if (data[4]!=NULL && data[8]!=NULL) {
+	    (data[4+k])[i+pwidth*(j)] = (data[8+k])[pwidth-i+pwidth*(pad+j)];
+	    (data[8+k])[i+pwidth*(pheight-pad+j)] = (data[4+k])[i+pwidth*(j+pad)];
+	  }
+	  if (data[0]!=NULL && data[8]!=NULL) {
+	    (data[0+k])[i+pwidth*(j)] = (data[8+k])[i+pwidth*(pheight-2*pad+j)];
+	    (data[8+k])[pwidth-i+pwidth*(j)] = (data[0+k])[i+pwidth*(pad+j)];
+	  }
+	  if (data[16]!=NULL && data[8]!=NULL) {
+	    (data[16+k])[i+pwidth*(j)] = (data[8+k])[pheight-2*pad+j+pwidth*(pwidth-i)];
+	    (data[8+k])[j+pwidth*(i)] = (data[16+k])[i+pwidth*(j+pad)];	 
+	  } 
+	  if (data[12]!=NULL && data[8]!=NULL) {
+	    (data[12+k])[i+pwidth*(j)] = (data[8+k])[j+pad+pwidth*(i)];
+	    (data[8+k])[pheight-pad+j+pwidth*(pwidth-i)] = (data[12+k])[i+pwidth*(j+pad)];
+	  }
+	}
+    
+    //HACKY solution to the problem with dark pixels...
+    for (int k=0; k<24; k++) {
+      if (data[k]!=NULL && !(cpi==3 && k%4==3) ) {
+	for (int i=0; i<pad; i++) {
+	  (data[k])[i+pwidth*(pad-1)] = (data[k])[i+pwidth*(pad)];
+	  (data[k])[i+pwidth*(pheight-pad)] = (data[k])[i+pwidth*(pheight-pad-1)];
+	  (data[k])[pwidth-i-1+pwidth*(pad-1)] = (data[k])[pwidth-i-1+pwidth*(pad)];
+	  (data[k])[pwidth-1-i+pwidth*(pheight-pad)] = (data[k])[pwidth-1-i+pwidth*(pheight-pad-1)];
+	}
+	for (int j=0; j<pad; j++) {
+	  (data[k])[pad-1+pwidth*(j)] = (data[k])[pad+pwidth*(j)];
+	  (data[k])[pwidth-pad+pwidth*(j)] = (data[k])[pwidth-pad-1+pwidth*(j)];
+	  (data[k])[pad-1+pwidth*(pheight-1-j)] = (data[k])[pad+pwidth*(pheight-1-j)];
+	  (data[k])[pwidth-pad+pwidth*(pheight-1-j)] = (data[k])[pwidth-pad-1+pwidth*(pheight-1-j)];
+	}
+      }
+      if (pad>=2) {
+	if (!(cpi==3 && k%4==3) ) {
+	  for (int i=0; i<pad; i++) {
+	    (data[k])[i+pwidth*(pad-2)] = (data[k])[i+pwidth*(pad)];
+	    (data[k])[i+pwidth*(pheight-pad+1)] = (data[k])[i+pwidth*(pheight-pad-1)];
+	    (data[k])[pwidth-i-1+pwidth*(pad-2)] = (data[k])[pwidth-i-1+pwidth*(pad)];
+	    (data[k])[pwidth-1-i+pwidth*(pheight-pad+1)] = (data[k])[pwidth-1-i+pwidth*(pheight-pad-1)];
+	  }
+	  for (int j=0; j<pad; j++) {
+	    (data[k])[pad-2+pwidth*(j)] = (data[k])[pad+pwidth*(j)];
+	    (data[k])[pwidth-pad+1+pwidth*(j)] = (data[k])[pwidth-pad-1+pwidth*(j)];
+	    (data[k])[pad-2+pwidth*(pheight-1-j)] = (data[k])[pad+pwidth*(pheight-1-j)];
+	    (data[k])[pwidth-pad+1+pwidth*(pheight-1-j)] = (data[k])[pwidth-pad-1+pwidth*(pheight-1-j)];
+	  }
+	} 
+      }
+      if (pad>=3) {
+	if (!(cpi==3 && k%4==3) ) {
+	  for (int i=0; i<pad; i++) {
+	    (data[k])[i+pwidth*(pad-3)] = (data[k])[i+pwidth*(pad)];
+	    (data[k])[i+pwidth*(pheight-pad+2)] = (data[k])[i+pwidth*(pheight-pad-1)];
+	    (data[k])[pwidth-i-1+pwidth*(pad-3)] = (data[k])[pwidth-i-1+pwidth*(pad)];
+	    (data[k])[pwidth-1-i+pwidth*(pheight-pad+2)] = (data[k])[pwidth-1-i+pwidth*(pheight-pad-1)];
+	  }
+	  for (int j=0; j<pad; j++) {
+	    (data[k])[pad-3+pwidth*(j)] = (data[k])[pad+pwidth*(j)];
+	    (data[k])[pwidth-pad+2+pwidth*(j)] = (data[k])[pwidth-pad-1+pwidth*(j)];
+	    (data[k])[pad-3+pwidth*(pheight-1-j)] = (data[k])[pad+pwidth*(pheight-1-j)];
+	    (data[k])[pwidth-pad+2+pwidth*(pheight-1-j)] = (data[k])[pwidth-pad-1+pwidth*(pheight-1-j)];
+	  }
+	} 
+      }
+    }
+  }
 }
 
 void Help ()
@@ -467,3 +509,4 @@ void Help ()
   printf ("  -t <angle>  Tilt angle\n");
   printf ("  -v          Verbose messages\n");
 }
+
