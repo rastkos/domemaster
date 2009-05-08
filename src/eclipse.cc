@@ -544,9 +544,17 @@ void FreeTrans ()
   }
 }
 
-void CalcTrans (int inwidth, int inheight, float alpha, float beta)
+void CalcTrans (int inwidth1, int inheight1, float alpha, float beta)
 {
   float np = float(pad); //(angle/180.0-0.5)*(float)inwidth + 
+  float inwidth, inheight;
+  inwidth = inwidth1;
+  inheight=inheight1;
+
+//   np = (angle/180.0-0.5)*(float)inwidth1 + (float)pad;
+//   inwidth = inwidth1*(90.0/angle);
+//   inheight = inheight1*(90.0/angle);
+
   // printf ("%f\n", np);
   for (int i=0; i<6; i++) {
     xcoord[i] = new float[outwidth*outheight];
@@ -560,10 +568,10 @@ void CalcTrans (int inwidth, int inheight, float alpha, float beta)
   //printf ("%f %f\n", alpha, beta);
 
   bool rotate = false;
-  float cosa = cos(alpha*0.1745329251);
-  float sina = sin(alpha*0.1745329251);
-  float cosb = cos(beta*0.1745329251);
-  float sinb = sin(beta*0.1745329251);
+  float cosa = cos(alpha*0.01745329251);
+  float sina = sin(alpha*0.01745329251);
+  float cosb = cos(beta*0.01745329251);
+  float sinb = sin(beta*0.01745329251);
   if (alpha != 0.0 || beta != 0.0) {
     // printf ("Rotate\n");
     rotate = true;
@@ -586,17 +594,13 @@ void CalcTrans (int inwidth, int inheight, float alpha, float beta)
       float y0 = sin(theta)*sin(phi);
       float z0 = cos(theta);
       if (rotate) {
-	float x1 = cosa*x0 + sina*y0;
-	float y1 = -sina*x0+ cosa*y0;
-	float z1 = z0;
-
-// 	float x2 = cosb*x1 - sinb*z1;
-// 	float y2 = y1;
-// 	float z2 = sinb*x1 + cosb*z1;
+	float x1 = x0;
+	float y1 = cosb*y0 + sinb*z0;
+	float z1 =-sinb*y0 + cosb*z0;
 	
-	float x2 = x1;
-	float y2 = cosb*y1 + sinb*z1;
-	float z2 =-sinb*y1 + cosb*z1;
+	float x2 = cosa*x1 + sina*y1;
+	float y2 = -sina*x1+ cosa*y1;
+	float z2 = z1;
 
 	x0 = x2; y0=y2; z0= z2;
       }
@@ -743,10 +747,10 @@ void trans (float *res, char ttype, int u, int v, int inwidth, int inheight, flo
   float theta = ruv*(ap)/2.0;
  
   bool rotate = false;
-  float cosa = cos(alpha*0.1745329251);
-  float sina = sin(alpha*0.1745329251);
-  float cosb = cos(beta*0.1745329251);
-  float sinb = sin(beta*0.1745329251);
+  float cosa = cos(alpha*0.01745329251);
+  float sina = sin(alpha*0.01745329251);
+  float cosb = cos(beta*0.01745329251);
+  float sinb = sin(beta*0.01745329251);
   if (alpha != 0.0 || beta != 0.0) {
     // printf ("Rotate\n");
     rotate = true;
@@ -757,18 +761,14 @@ void trans (float *res, char ttype, int u, int v, int inwidth, int inheight, flo
   float y0 = sin(theta)*sin(phi);
   float z0 = cos(theta);
   if (rotate) {
-    float x1 = cosa*x0 + sina*y0;
-    float y1 = -sina*x0+ cosa*y0;
-    float z1 = z0;
+    float x1 = x0;
+    float y1 = cosb*y0 + sinb*z0;
+    float z1 =-sinb*y0 + cosb*z0;
     
-    // 	float x2 = cosb*x1 - sinb*z1;
-    // 	float y2 = y1;
-    // 	float z2 = sinb*x1 + cosb*z1;
-    
-    float x2 = x1;
-    float y2 = cosb*y1 + sinb*z1;
-    float z2 =-sinb*y1 + cosb*z1;
-    
+    float x2 = cosa*x1 + sina*y1;
+    float y2 = -sina*x1+ cosa*y1;
+    float z2 = z1;
+
     x0 = x2; y0=y2; z0= z2;
   }
 
