@@ -61,30 +61,59 @@ Image::Image (const char *name, int npad)
     int npix_in=pwidth*pheight;
     
     BYTE *bits1 = FreeImage_GetBits (bitmap1);
+    int pitch = FreeImage_GetPitch (bitmap1);
     
-    red = new float[npix_in];
-    for (int i = 0; i<width; i++) 
-      for (int j = 0; j<height; j++) 
-	red[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_RED];
-    
+    red   = new float[npix_in];
     green = new float[npix_in];
-    for (int i = 0; i<width; i++) 
-      for (int j = 0; j<height; j++) 
-	green[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_GREEN];
-    
-    blue = new float[npix_in];
-    for (int i = 0; i<width; i++) 
-      for (int j = 0; j<height; j++) 
-	blue[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_BLUE];
-    
-    if (cpi==4) {
+    blue  = new float[npix_in];
+    if (cpi==4) 
       alpha = new float[npix_in];
-      for (int i = 0; i<width; i++) 
-	for (int j = 0; j<height; j++) 
-	  alpha[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_ALPHA];
+    for (int y = 0; y<height; y++) {
+      BYTE *pixel = bits1;
+      for (int x = 0; x<width; x++) { 
+	red[x+npad+pwidth*(y+npad)]   = pixel[FI_RGBA_RED];
+	green[x+npad+pwidth*(y+npad)] = pixel[FI_RGBA_GREEN];
+	blue[x+npad+pwidth*(y+npad)]  = pixel[FI_RGBA_BLUE];
+	if (cpi==4) 
+ 	  alpha[x+npad+pwidth*(y+npad)] = pixel[FI_RGBA_ALPHA];
+	pixel += cpi;
+      }
+      bits1 += pitch;
     }
-    else
-      alpha = NULL;
+  //       outbitmap = FreeImage_Allocate (outwidth, outheight, front->bpp);
+//       BYTE *outbits = FreeImage_GetBits (outbitmap);
+//       int pitch = FreeImage_GetPitch (outbitmap);
+//       for (int y = 0; y<outheight; y++) {
+// 	BYTE *pixel = outbits;
+// 	for (int x=0; x<outwidth; x++) {
+// 	  pixel[FI_RGBA_RED] = CastFloat (out->red[x+y*outwidth]);
+// 	  pixel[FI_RGBA_GREEN] = CastFloat (out->green[x+y*outwidth]);
+// 	  pixel[FI_RGBA_BLUE] = CastFloat (out->blue[x+y*outwidth]);
+// 	  if (cpi == 4) 
+// 	    pixel[FI_RGBA_ALPHA] = CastFloat (out->alpha[x+y*outwidth]);
+// 	  pixel += cpi;
+// 	}
+// 	outbits += pitch;
+//       }
+
+//     green = new float[npix_in];
+//     for (int i = 0; i<width; i++) 
+//       for (int j = 0; j<height; j++) 
+// 	green[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_GREEN];
+    
+//     blue = new float[npix_in];
+//     for (int i = 0; i<width; i++) 
+//       for (int j = 0; j<height; j++) 
+// 	blue[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_BLUE];
+    
+//     if (cpi==4) {
+//       alpha = new float[npix_in];
+//       for (int i = 0; i<width; i++) 
+// 	for (int j = 0; j<height; j++) 
+// 	  alpha[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_ALPHA];
+//     }
+//     else
+//       alpha = NULL;
   
     if (!strncmp (imname, "b_", 2))
       proj = BACK;

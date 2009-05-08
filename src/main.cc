@@ -194,6 +194,8 @@ int main( int argc, char ** argv )
   }
 
   FreeImage_Initialise ();
+  int oldwidth = 0;
+  int oldheight = 0;
 
   for (unsigned index=0; index<ffiles.size(); index++) {
     Image *front = new Image(ffiles[index], pad);
@@ -236,7 +238,9 @@ int main( int argc, char ** argv )
     Pad (front, back, left, right, down, up, padseams);
 
 
-    if (index==0) {
+    if (front->width!=oldwidth ||front->height!=oldheight ) {
+      oldwidth = front->width;
+      oldheight = front->height;
       if (verbose) {
 	gettimeofday (&tv2, NULL);
 	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
@@ -244,6 +248,8 @@ int main( int argc, char ** argv )
 	
 	gettimeofday (&tv1, NULL);
       }
+      if (index == 0)
+	FreeTrans ();
       CalcTrans (front->width, front->height, alpha, beta);
       if (verbose) {
 	gettimeofday (&tv2, NULL);
@@ -291,21 +297,32 @@ int main( int argc, char ** argv )
     if (front->bpp==32 && discard_alpha) {
       outbitmap = FreeImage_Allocate (outwidth, outheight, 24);
       BYTE *outbits = FreeImage_GetBits (outbitmap);
-      for (int i = 0; i<outwidth*outheight; i++) {
-	outbits[3*i+FI_RGBA_RED] =   CastFloat (out->red[i]);
-	outbits[3*i+FI_RGBA_GREEN] = CastFloat (out->green[i]);
-	outbits[3*i+FI_RGBA_BLUE] =  CastFloat (out->blue[i]);
+      int pitch = FreeImage_GetPitch (outbitmap);
+      for (int y = 0; y<outheight; y++) {
+	BYTE *pixel = outbits;
+	for (int x=0; x<outwidth; x++) {
+	  pixel[FI_RGBA_RED] =   CastFloat (out->red[x+y*outwidth]);
+	  pixel[FI_RGBA_GREEN] = CastFloat (out->green[x+y*outwidth]);
+	  pixel[FI_RGBA_BLUE] =  CastFloat (out->blue[x+y*outwidth]);
+	  pixel += 3;
+	}
+	outbits += pitch;
       }
     } else {
       outbitmap = FreeImage_Allocate (outwidth, outheight, front->bpp);
       BYTE *outbits = FreeImage_GetBits (outbitmap);
-      for (int i = 0; i<outwidth*outheight; i++) {
-	outbits[cpi*i+FI_RGBA_RED] =   CastFloat (out->red[i]);
-	outbits[cpi*i+FI_RGBA_GREEN] = CastFloat (out->green[i]);
-	outbits[cpi*i+FI_RGBA_BLUE] =  CastFloat (out->blue[i]);
-	if (cpi == 4) 
-	  outbits[cpi*i+FI_RGBA_ALPHA] =   CastFloat (out->alpha[i]);
-	
+      int pitch = FreeImage_GetPitch (outbitmap);
+      for (int y = 0; y<outheight; y++) {
+	BYTE *pixel = outbits;
+	for (int x=0; x<outwidth; x++) {
+	  pixel[FI_RGBA_RED] =   CastFloat (out->red[x+y*outwidth]);
+	  pixel[FI_RGBA_GREEN] = CastFloat (out->green[x+y*outwidth]);
+	  pixel[FI_RGBA_BLUE] =  CastFloat (out->blue[x+y*outwidth]);
+	  if (cpi == 4) 
+	    pixel[FI_RGBA_ALPHA] = CastFloat (out->alpha[x+y*outwidth]);
+	  pixel += cpi;
+	}
+	outbits += pitch;
       }
     }
     int ss = strlen(front->imname)-1;
