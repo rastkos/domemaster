@@ -237,20 +237,20 @@ int main( int argc, char ** argv )
 
     Pad (front, back, left, right, down, up, padseams);
 
+    if (verbose) {
+      gettimeofday (&tv2, NULL);
+      t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
+      printf ("Loading images & padding took %ld milliseconds\n", t);
+    }
 
     if (front->width!=oldwidth ||front->height!=oldheight ) {
       oldwidth = front->width;
       oldheight = front->height;
-      if (verbose) {
-	gettimeofday (&tv2, NULL);
-	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
-	printf ("Loading images & padding took %ld milliseconds\n", t);
-	
+      if (verbose) 
 	gettimeofday (&tv1, NULL);
-      }
-      if (index == 0)
+      if (index != 0)
 	FreeTrans ();
-      CalcTrans (front->width, front->height, alpha, beta);
+      CalcTrans (front->width, front->height, alpha, beta, kernel);
       if (verbose) {
 	gettimeofday (&tv2, NULL);
 	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
@@ -261,25 +261,25 @@ int main( int argc, char ** argv )
     }
     gettimeofday (&tv2, NULL);
 
-    Image *out = image_warp_generic(front, kernel);
+    Image *out = image_warp_generic(front);
  
-    Image *out1 = image_warp_generic(back, kernel);
+    Image *out1 = image_warp_generic(back);
     *out += *out1;
     delete out1;
 
-    out1 = image_warp_generic(left, kernel);
+    out1 = image_warp_generic(left);
     *out += *out1;
     delete out1;
 
-    out1 = image_warp_generic(right, kernel);
+    out1 = image_warp_generic(right);
     *out += *out1;
     delete out1;
 
-    out1 = image_warp_generic(up, kernel);
+    out1 = image_warp_generic(up);
     *out += *out1;
     delete out1;
 
-    out1 = image_warp_generic(down, kernel);
+    out1 = image_warp_generic(down);
     *out += *out1;
     delete out1;
     
@@ -292,6 +292,7 @@ int main( int argc, char ** argv )
     cpi = front->cpi;
     
     // Construct and save output image
+    // SaveImage (const Image *out, const Image *front, bool)
     gettimeofday (&tv1, NULL);
     FIBITMAP *outbitmap ;
     if (front->bpp==32 && discard_alpha) {
@@ -344,6 +345,7 @@ int main( int argc, char ** argv )
       t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
       printf ("Constructing and saving final image took %ld milliseconds\n", t);
     }
+
     delete out;
     delete front;
     delete back;

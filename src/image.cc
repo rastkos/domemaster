@@ -80,40 +80,6 @@ Image::Image (const char *name, int npad)
       }
       bits1 += pitch;
     }
-  //       outbitmap = FreeImage_Allocate (outwidth, outheight, front->bpp);
-//       BYTE *outbits = FreeImage_GetBits (outbitmap);
-//       int pitch = FreeImage_GetPitch (outbitmap);
-//       for (int y = 0; y<outheight; y++) {
-// 	BYTE *pixel = outbits;
-// 	for (int x=0; x<outwidth; x++) {
-// 	  pixel[FI_RGBA_RED] = CastFloat (out->red[x+y*outwidth]);
-// 	  pixel[FI_RGBA_GREEN] = CastFloat (out->green[x+y*outwidth]);
-// 	  pixel[FI_RGBA_BLUE] = CastFloat (out->blue[x+y*outwidth]);
-// 	  if (cpi == 4) 
-// 	    pixel[FI_RGBA_ALPHA] = CastFloat (out->alpha[x+y*outwidth]);
-// 	  pixel += cpi;
-// 	}
-// 	outbits += pitch;
-//       }
-
-//     green = new float[npix_in];
-//     for (int i = 0; i<width; i++) 
-//       for (int j = 0; j<height; j++) 
-// 	green[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_GREEN];
-    
-//     blue = new float[npix_in];
-//     for (int i = 0; i<width; i++) 
-//       for (int j = 0; j<height; j++) 
-// 	blue[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_BLUE];
-    
-//     if (cpi==4) {
-//       alpha = new float[npix_in];
-//       for (int i = 0; i<width; i++) 
-// 	for (int j = 0; j<height; j++) 
-// 	  alpha[i+npad+pwidth*(j+npad)] = bits1[cpi*(i+j*width)+FI_RGBA_ALPHA];
-//     }
-//     else
-//       alpha = NULL;
   
     if (!strncmp (imname, "b_", 2))
       proj = BACK;

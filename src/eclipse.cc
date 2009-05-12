@@ -17,6 +17,8 @@ int nnz[6] = {0,0,0,0,0,0};
 std::vector<int> xint;
 std::vector<int> yint;
 
+double  * kernel ;
+
 /*-------------------------------------------------------------------------*/
 /**
   @brief        Warp an image according to a polynomial transformation.
@@ -52,8 +54,7 @@ std::vector<int> yint;
 
  */
 /*--------------------------------------------------------------------------*/
-Image* image_warp_generic (const Image *inimage,
-			   const char  *kernel_type)
+Image* image_warp_generic (const Image *inimage)
 {
   //image_t    * image_out ;
   Image *outimage;
@@ -70,19 +71,9 @@ Image* image_warp_generic (const Image *inimage,
   int          px, py ;
   int          pos ;
   int          tabx, taby ;
-  double     * kernel ;
   int          leaps[16] ;
   
-  // if (image_in == NULL) return NULL ;
   if (inimage == NULL) return NULL ;
-  
-  /* Generate default interpolation kernel */
-  kernel = generate_interpolation_kernel(kernel_type) ;
-  if (kernel == NULL) {
-    fprintf(stderr,"ERROR: image_warp_generic\n"
-	    "   cannot generate kernel: aborting resampling\n") ;
-    return NULL ;
-  }
   
   /* Compute new image size   */
   lx_out = (int)outwidth ;
@@ -277,7 +268,6 @@ Image* image_warp_generic (const Image *inimage,
       }      
     }
   }
-  free(kernel) ;
   return outimage ;
 }
 
@@ -542,14 +532,23 @@ void FreeTrans ()
     delete[] xcoord[i];
     delete[] ycoord[i];
   }
+  free(kernel) ;
+  
 }
 
-void CalcTrans (int inwidth1, int inheight1, float alpha, float beta)
+void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
+		const char  *kernel_type)
 {
   float np = float(pad); //(angle/180.0-0.5)*(float)inwidth + 
   float inwidth, inheight;
   inwidth = inwidth1;
   inheight=inheight1;
+
+  kernel = generate_interpolation_kernel(kernel_type) ;
+  if (kernel == NULL) {
+    fprintf(stderr,"ERROR: CalcTrans\n"
+	    "   cannot generate kernel: aborting resampling\n") ;
+  }
 
 //   np = (angle/180.0-0.5)*(float)inwidth1 + (float)pad;
 //   inwidth = inwidth1*(90.0/angle);

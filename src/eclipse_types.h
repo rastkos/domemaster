@@ -16,8 +16,8 @@ double sinc(double x);
 void reverse_tanh_kernel(double * data, int nn);
 void trans (float *res, char ttype, int u, int v, int nx, int ny, float alpha, float beta);
 
-Image * image_warp_generic(const Image *image_in, const char *kernel_type);
-void CalcTrans (int inwidth, int inheight, float alpha=0.0, float beta=0.0);
+Image * image_warp_generic(const Image *image_in);
+void CalcTrans (int inwidth, int inheight, float alpha, float beta, const char *kernel_type);
 void FreeTrans ();
 
 #endif
