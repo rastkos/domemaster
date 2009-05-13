@@ -441,10 +441,10 @@ void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Ima
 	    (data[16+k])[i+pwidth*(pheight-pad+j)] = (data[20+k])[pheight-2*pad+j+pwidth*(pheight-i)];
 	    (data[20+k])[pheight-pad+j+pwidth*(pheight-i)] = (data[16+k])[i+pwidth*(pheight-2*pad+j)];
 	  }
-	  if (data[4]!=NULL && data[8]!=NULL) {
-	    (data[4+k])[i+pwidth*(j)] = (data[8+k])[pwidth-i+pwidth*(pad+j)];
-	    (data[8+k])[i+pwidth*(pheight-pad+j)] = (data[4+k])[i+pwidth*(j+pad)];
-	  }
+ 	  if (data[4]!=NULL && data[8]!=NULL) {
+ 	    (data[4+k])[i+pwidth*(j)] = (data[8+k])[pwidth-i+pwidth*(pad+j)];
+ 	    (data[8+k])[pwidth-i+pwidth*(j)] = (data[4+k])[i+pwidth*(j+pad)];
+ 	  }
 	  if (data[0]!=NULL && data[8]!=NULL) {
 	    (data[0+k])[i+pwidth*(j)] = (data[8+k])[i+pwidth*(pheight-2*pad+j)];
 	    (data[8+k])[pwidth-i+pwidth*(j)] = (data[0+k])[i+pwidth*(pad+j)];
@@ -475,7 +475,7 @@ void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Ima
 	  (data[k])[pwidth-pad+pwidth*(pheight-1-j)] = (data[k])[pwidth-pad-1+pwidth*(pheight-1-j)];
 	}
       }
-      if (pad>=2) {
+      if (data[k]!=NULL && pad>=2) {
 	if (!(cpi==3 && k%4==3) ) {
 	  for (int i=0; i<pad; i++) {
 	    (data[k])[i+pwidth*(pad-2)] = (data[k])[i+pwidth*(pad)];
@@ -491,7 +491,7 @@ void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Ima
 	  }
 	} 
       }
-      if (pad>=3) {
+      if (data[k]!=NULL && pad>=3) {
 	if (!(cpi==3 && k%4==3) ) {
 	  for (int i=0; i<pad; i++) {
 	    (data[k])[i+pwidth*(pad-3)] = (data[k])[i+pwidth*(pad)];
