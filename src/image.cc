@@ -21,6 +21,15 @@ Image::Image (int w, int h, int b)
   }
   else
     cpi=3;
+
+  for (int i=0;i<width*height;i++) {
+    red[i] = 0.0;
+    blue[i] = 0.0;
+    green[i] = 0.0;
+  }
+  if (alpha!=NULL)
+    for (int i=0;i<width*height;i++) 
+      alpha[i] = 0.0;  
 }
 
 Image::Image (const char *name, int npad)
@@ -66,21 +75,30 @@ Image::Image (const char *name, int npad)
     red   = new float[npix_in];
     green = new float[npix_in];
     blue  = new float[npix_in];
-    if (cpi==4) 
-      alpha = new float[npix_in];
     for (int y = 0; y<height; y++) {
       BYTE *pixel = bits1;
       for (int x = 0; x<width; x++) { 
 	red[x+npad+pwidth*(y+npad)]   = pixel[FI_RGBA_RED];
 	green[x+npad+pwidth*(y+npad)] = pixel[FI_RGBA_GREEN];
 	blue[x+npad+pwidth*(y+npad)]  = pixel[FI_RGBA_BLUE];
-	if (cpi==4) 
- 	  alpha[x+npad+pwidth*(y+npad)] = pixel[FI_RGBA_ALPHA];
 	pixel += cpi;
       }
       bits1 += pitch;
     }
-  
+
+    if (cpi==4) {
+      bits1 = FreeImage_GetBits (bitmap1);
+      alpha = new float[npix_in];
+      for (int y = 0; y<height; y++) {
+	BYTE *pixel = bits1;
+	for (int x = 0; x<width; x++) {
+ 	  alpha[x+npad+pwidth*(y+npad)] = pixel[FI_RGBA_ALPHA];
+	  pixel += cpi;
+	}
+	bits1 += pitch;
+      }
+    }
+
     if (!strncmp (imname, "b_", 2))
       proj = BACK;
     else if (!strncmp (imname, "d_", 2))
@@ -128,13 +146,13 @@ bool Image::operator == (const Image & d )
 
 bool Image::operator += (const Image & d )
 {
-  if (d.red != NULL) {
+  if (red !=NULL && d.red != NULL) {
     for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
       red[i]   += d.red[i];
       green[i] += d.green[i];
       blue[i]  += d.blue[i];
     }
-    if (alpha!=NULL) 
+    if (alpha!=NULL && d.alpha != NULL) 
       for (int i=0; i< (height+2*pad)*(width+2*pad); i++) 
 	alpha[i] += d.alpha[i];
   }

@@ -9,15 +9,17 @@ extern int outwidth;
 extern int outheight;
 extern float angle;
 extern int pad;
+extern bool interp;
 
 float ap=PI_NUMB;// *180.0/180.0;
 float *xcoord[6];
 float *ycoord[6];
+int umin[6], umax[6], vmin[6], vmax[6];
 int nnz[6] = {0,0,0,0,0,0};
 std::vector<int> xint;
 std::vector<int> yint;
 
-double  * kernel ;
+float  * kernel ;
 
 /*-------------------------------------------------------------------------*/
 /**
@@ -54,20 +56,19 @@ double  * kernel ;
 
  */
 /*--------------------------------------------------------------------------*/
-Image* image_warp_generic (const Image *inimage)
+Image* image_warp_generic (const Image *inimage, Image *outimage1)
 {
   //image_t    * image_out ;
   Image *outimage;
   int          i, j, k ;
   int          lx_out, ly_out ;
-  double       curred, curgreen, curblue, curalpha ;
-  double      neighbors_red[16] ;
-  double      neighbors_green[16] ;
-  double      neighbors_blue[16] ;
-  double      neighbors_alpha[16] ;
-  double       rsc[8],
-    sumrs ;
-  double       x, y ;
+  float       curred, curgreen, curblue, curalpha ;
+  float      neighbors_red[16] ;
+  float      neighbors_green[16] ;
+  float      neighbors_blue[16] ;
+  float      neighbors_alpha[16] ;
+  float       rsc[8], sumrs ;
+  float       x, y ;
   int          px, py ;
   int          pos ;
   int          tabx, taby ;
@@ -79,45 +80,57 @@ Image* image_warp_generic (const Image *inimage)
   lx_out = (int)outwidth ;
   ly_out = (int)outheight;
   
-  outimage = new Image(lx_out, ly_out, inimage->bpp); 
+  if (outimage1==NULL)
+    outimage = new Image(lx_out, ly_out, inimage->bpp); 
+  else
+    outimage = outimage1;
 
   float *xs;
   float *ys;
-  int n;
+  int n, x0, x1, y0, y1;
   switch (inimage->proj) {
   case BACK:
-    xs = xcoord[0]; ys = ycoord[0]; n=nnz[0]; break;
+    xs = xcoord[0]; ys = ycoord[0]; n=nnz[0]; 
+    x0 = umin[0]; x1=umax[0]; y0=vmin[0]; y1=vmax[0];
+    break;
   case DOWN:
-    xs = xcoord[1]; ys = ycoord[1]; n=nnz[1]; break;
+    xs = xcoord[1]; ys = ycoord[1]; n=nnz[1];  
+    x0 = umin[1]; x1=umax[1]; y0=vmin[1]; y1=vmax[1];
+    break;
   case FRONT:
-    xs = xcoord[2]; ys = ycoord[2]; n=nnz[2]; break;
+    xs = xcoord[2]; ys = ycoord[2]; n=nnz[2];  
+    x0 = umin[2]; x1=umax[2]; y0=vmin[2]; y1=vmax[2];
+    break;
   case LEFT:
-    xs = xcoord[3]; ys = ycoord[3]; n=nnz[3]; break;
+    xs = xcoord[3]; ys = ycoord[3]; n=nnz[3];  
+    x0 = umin[3]; x1=umax[3]; y0=vmin[3]; y1=vmax[3];
+    break;
   case RIGHT:
-    xs = xcoord[4]; ys = ycoord[4]; n=nnz[4]; break;
+    xs = xcoord[4]; ys = ycoord[4]; n=nnz[4];  
+    x0 = umin[4]; x1=umax[4]; y0=vmin[4]; y1=vmax[4];
+    break;
   case UP:
-    xs = xcoord[5]; ys = ycoord[5]; n=nnz[5]; break;
+    xs = xcoord[5]; ys = ycoord[5]; n=nnz[5];  
+    x0 = umin[5]; x1=umax[5]; y0=vmin[5]; y1=vmax[5];
+    break;
   default:
     n=0; break;
   }
   
-  if (n==0) {
-    for (int i=0; i<lx_out*ly_out; i++) {
-      outimage->red[i]=0.0;
-      outimage->blue[i]=0.0;
-      outimage->green[i]=0.0;
-    }
-    if (inimage->alpha!=NULL)
-      for (int i=0; i<lx_out*ly_out; i++) 
-	outimage->alpha[i]=0.0;
+  if (n==0) 
     return (outimage);
-  }
 
-  /* Pre compute leaps for 16 closest neighbors positions */
+  x0--; y0--; x1++; y1++;
+  if (x0<0) x0=0;
+  if (y0<0) y0=0;
+  if (x1>lx_out) x1=lx_out;
+  if (y1>ly_out) y1=ly_out;
+
 
   int sizex = (inimage->width+2*inimage->pad);
   int sizey = (inimage->height+2*inimage->pad);
   
+  /* Pre compute leaps for 16 closest neighbors positions */
   leaps[0] = -1 -   sizex; //image_in->lx ;
   leaps[1] =    -   sizex; //image_in->lx ;
   leaps[2] =  1 -   sizex; //image_in->lx ;
@@ -134,10 +147,31 @@ Image* image_warp_generic (const Image *inimage)
   leaps[5] =  0 ;
   leaps[6] =  1 ;
   leaps[7] =  2 ;
-  
+
+  if (!interp) {
+    for (i=x0 ; i< x1 ; i++) {
+      for (j=y0 ; j < y1 ; j++) {
+	x = xs[i+lx_out*j];
+	y = ys[i+lx_out*j];
+	
+	px = (int)x ;
+	py = (int)y ;
+	
+	if ((px >= 0) || (py >= 0) ) {
+	  outimage->red[i+j*lx_out] = inimage->red[px+py*sizex];
+	  outimage->green[i+j*lx_out] = inimage->green[px+py*sizex];
+	  outimage->blue[i+j*lx_out] = inimage->blue[px+py*sizex];
+	  if (outimage->alpha != NULL)
+	    outimage->alpha[i+j*lx_out] = inimage->alpha[px+py*sizex];
+	}
+      }
+    }
+    return (outimage);
+  }
+
   /* Double loop on the output image  */
-  for (i=0 ; i< lx_out ; i++) {
-    for (j=0 ; j < ly_out ; j++) {
+  for (i=x0 ; i< x1 ; i++) {
+    for (j=y0 ; j < y1 ; j++) {
       /* Compute the original source for this pixel   */
       
       //trans (&res[0], proj, i, j, sizex, sizey, 0.0, 90.0);
@@ -150,17 +184,18 @@ Image* image_warp_generic (const Image *inimage)
       px = (int)x ;
       py = (int)y ;
      
-      if ((px < 1) ||
-	  (px > (sizex-3)) ||
-	  (py < 1) ||
-	  (py > (sizey-3))) {
-	(outimage->red)[i+j*lx_out] = 0.0 ;
-	outimage->green[i+j*lx_out] = 0.0 ;
-	outimage->blue[i+j*lx_out] = 0.0 ;
-	if (outimage->alpha != NULL)
-	  outimage->alpha[i+j*lx_out] = 0.0 ;
-      }
-      else {
+//       if ((px < 1) ||
+// 	  (px > (sizex-3)) ||
+// 	  (py < 1) ||
+// 	  (py > (sizey-3))) {
+// 	(outimage->red)[i+j*lx_out] = 0.0 ;
+// 	outimage->green[i+j*lx_out] = 0.0 ;
+// 	outimage->blue[i+j*lx_out] = 0.0 ;
+// 	if (outimage->alpha != NULL)
+// 	  outimage->alpha[i+j*lx_out] = 0.0 ;
+//       }
+//       else {
+      if ((px >= 1) && (px <= (sizex-3)) && (py >= 1) && (px <= (sizey-3))) {
 	/* Now feed the positions for the closest 16 neighbors  */
 	pos = px + py * sizex ;
 	for (k=0 ; k<16 ; k++) {
@@ -265,7 +300,7 @@ Image* image_warp_generic (const Image *inimage)
 	if (outimage->alpha != NULL) 
 	  outimage->alpha[i+j*lx_out] = (pixelvalue)(curalpha/sumrs) ;
 	/* done ! */
-      }      
+    }      
     }
   }
   return outimage ;
@@ -295,9 +330,9 @@ Image* image_warp_generic (const Image *inimage)
   functions in this module. It must be deallocated using free().
  */
 /*--------------------------------------------------------------------------*/
-double * generate_interpolation_kernel(const char * kernel_type)
+float * generate_interpolation_kernel(const char * kernel_type)
 {
-  double  *	tab ;
+  float  *	tab ;
   int     	i ;
   double  	x ;
   double		alpha ;
@@ -309,7 +344,7 @@ double * generate_interpolation_kernel(const char * kernel_type)
   } else if (!strcmp(kernel_type, "default")) {
     tab = generate_interpolation_kernel("tanh") ;
   } else if (!strcmp(kernel_type, "sinc")) {
-    tab = (double*)malloc(samples * sizeof(double)) ;
+    tab = (float*)malloc(samples * sizeof(float)) ;
     tab[0] = 1.0 ;
     tab[samples-1] = 0.0 ;
     for (i=1 ; i<samples ; i++) {
@@ -317,7 +352,7 @@ double * generate_interpolation_kernel(const char * kernel_type)
       tab[i] = sinc(x) ;
     }
   } else if (!strcmp(kernel_type, "sinc2")) {
-    tab = (double*)malloc(samples * sizeof(double)) ;
+    tab = (float*)malloc(samples * sizeof(float)) ;
     tab[0] = 1.0 ;
     tab[samples-1] = 0.0 ;
     for (i=1 ; i<samples ; i++) {
@@ -326,7 +361,7 @@ double * generate_interpolation_kernel(const char * kernel_type)
       tab[i] *= tab[i] ;
     }
   } else if (!strcmp(kernel_type, "lanczos")) {
-    tab = (double*)malloc(samples * sizeof(double)) ;
+    tab = (float*)malloc(samples * sizeof(float)) ;
     for (i=0 ; i<samples ; i++) {
       x = (double)KERNEL_WIDTH * (double)i/(double)(samples-1) ;
       if (fabs(x)<2) {
@@ -336,7 +371,7 @@ double * generate_interpolation_kernel(const char * kernel_type)
       }
     }
   } else if (!strcmp(kernel_type, "hamming")) {
-    tab = (double*)malloc(samples * sizeof(double)) ;
+    tab = (float*)malloc(samples * sizeof(float)) ;
     alpha = 0.54 ;
     inv_norm  = 1.00 / (double)(samples - 1) ;
     for (i=0 ; i<samples ; i++) {
@@ -348,7 +383,7 @@ double * generate_interpolation_kernel(const char * kernel_type)
       }
     }
   } else if (!strcmp(kernel_type, "hann")) {
-    tab = (double*)malloc(samples * sizeof(double)) ;
+    tab = (float*)malloc(samples * sizeof(float)) ;
     alpha = 0.50 ;
     inv_norm  = 1.00 / (double)(samples - 1) ;
     for (i=0 ; i<samples ; i++) {
@@ -391,10 +426,10 @@ double * generate_interpolation_kernel(const char * kernel_type)
  */
 /*--------------------------------------------------------------------------*/
 #define hk_gen(x,s) (((tanh(s*(x+0.5))+1)/2)*((tanh(s*(-x+0.5))+1)/2))
-double * generate_tanh_kernel(double steep)
+float * generate_tanh_kernel(double steep)
 {
-    double  *   kernel ;
-    double  *   x ;
+    float  *   kernel ;
+    float  *   x ;
     double      width ;
     double      inv_np ;
     double      ind ;
@@ -411,7 +446,7 @@ double * generate_tanh_kernel(double steep)
      * Generate the kernel expression in Fourier space
      * with a correct frequency ordering to allow standard FT
      */
-    x = (double*)malloc((2*np+1)*sizeof(double)) ;
+    x = (float*)malloc((2*np+1)*sizeof(float)) ;
     for (i=0 ; i<np/2 ; i++) {
         ind      = (double)i * 2.0 * width * inv_np ;
         x[2*i]   = hk_gen(ind, steep) ;
@@ -431,7 +466,7 @@ double * generate_tanh_kernel(double steep)
     /*
      * Allocate and fill in returned array
      */
-    kernel = (double*)malloc(samples * sizeof(double)) ;
+    kernel = (float*)malloc(samples * sizeof(float)) ;
     for (i=0 ; i<samples ; i++) {
         kernel[i] = 2.0 * width * x[2*i] * inv_np ;
     }
@@ -469,7 +504,7 @@ double sinc(double x)
  */
 /*--------------------------------------------------------------------------*/
 #define KERNEL_SW(a,b) tempr=(a);(a)=(b);(b)=tempr
-void reverse_tanh_kernel(double * data, int nn)
+void reverse_tanh_kernel(float * data, int nn)
 {
     unsigned long   n,
 					mmax,
@@ -562,6 +597,10 @@ void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
       (xcoord[i])[j] = -1.0;
       (ycoord[i])[j] = -1.0;
     }
+    umin[i] = outwidth;
+    umax[i] = 0;
+    vmin[i] = outheight;
+    vmax[i] = 0;
   }
 
   //printf ("%f %f\n", alpha, beta);
@@ -678,36 +717,60 @@ void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
 	(xcoord[2])[u+v*outwidth] = xcf;
 	(ycoord[2])[u+v*outwidth] = ycf;
 	if (xcf>=0.0 && ycf>=0.0) {
+	  if (umax[2]<u) umax[2] = u;
+	  if (vmax[2]<v) vmax[2] = v;
+	  if (umin[2]>u) umin[2] = u;
+	  if (vmin[2]>v) vmin[2] = v;
 	  nnz[2]++;
 	  break;
 	}
 	(xcoord[3])[u+v*outwidth] = xcl;
 	(ycoord[3])[u+v*outwidth] = ycl;
 	if (xcl>=0.0 && ycl>=0.0) {
+	  if (umax[3]<u) umax[3] = u;
+	  if (vmax[3]<v) vmax[3] = v;
+	  if (umin[3]>u) umin[3] = u;
+	  if (vmin[3]>v) vmin[3] = v;
 	  nnz[3]++;
 	  break;
 	}
 	(xcoord[4])[u+v*outwidth] = xcr;
 	(ycoord[4])[u+v*outwidth] = ycr;
 	if (xcr>=0.0 && ycr>=0.0) {
+	  if (umax[4]<u) umax[4] = u;
+	  if (vmax[4]<v) vmax[4] = v;
+	  if (umin[4]>u) umin[4] = u;
+	  if (vmin[4]>v) vmin[4] = v;
 	  nnz[4]++;
 	  break;
 	}
 	(xcoord[5])[u+v*outwidth] = xcu;
 	(ycoord[5])[u+v*outwidth] = ycu;
 	if (xcu>=0.0 && ycu>=0.0) {
+	  if (umax[5]<u) umax[5] = u;
+	  if (vmax[5]<v) vmax[5] = v;
+	  if (umin[5]>u) umin[5] = u;
+	  if (vmin[5]>v) vmin[5] = v;
 	  nnz[5]++;
 	  break;
 	}
 	(xcoord[0])[u+v*outwidth] = xcb;
 	(ycoord[0])[u+v*outwidth] = ycb;
 	if (xcb>=0.0 && ycb>=0.0) {
+	  if (umax[0]<u) umax[0] = u;
+	  if (vmax[0]<v) vmax[0] = v;
+	  if (umin[0]>u) umin[0] = u;
+	  if (vmin[0]>v) vmin[0] = v;
 	  nnz[0]++;
 	  break;
 	}
 	(xcoord[1])[u+v*outwidth] = xcd;
 	(ycoord[1])[u+v*outwidth] = ycd;
 	if (xcd>=0.0 || ycd>=0.0) {
+	  if (umax[1]<u) umax[1] = u;
+	  if (vmax[1]<v) vmax[1] = v;
+	  if (umin[1]>u) umin[1] = u;
+	  if (vmin[1]>v) vmin[1] = v;
 	  nnz[1]++;
 	  break;
 	}

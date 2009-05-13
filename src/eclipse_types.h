@@ -10,13 +10,13 @@ typedef float   pixelvalue ;
 #define PI_NUMB     (3.1415926535897932384626433832795)
 #define TANH_STEEPNESS   (5.0)
 
-double * generate_interpolation_kernel(const char * kernel_type);
-double * generate_tanh_kernel(double steep);
+float * generate_interpolation_kernel(const char * kernel_type);
+float * generate_tanh_kernel(double steep);
 double sinc(double x);
-void reverse_tanh_kernel(double * data, int nn);
+void reverse_tanh_kernel(float * data, int nn);
 void trans (float *res, char ttype, int u, int v, int nx, int ny, float alpha, float beta);
 
-Image * image_warp_generic(const Image *image_in);
+Image * image_warp_generic(const Image *image_in, Image *image_out=NULL);
 void CalcTrans (int inwidth, int inheight, float alpha, float beta, const char *kernel_type);
 void FreeTrans ();
 

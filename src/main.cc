@@ -32,6 +32,8 @@ void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Ima
 bool verbose = false;
 bool discard_alpha = false;
 bool padseams = true;
+bool interp = true;
+
 int pad = 4;
 OUTPUT_TYPE outtype = OUTPUT_PNG;
 char buffer[64];
@@ -74,7 +76,7 @@ int main( int argc, char ** argv )
     return (EXIT_SUCCESS);
   }
 
-  while ( (n=getopt (argc, argv, "dhk:o:pr:s:t:v")) != -1) {
+  while ( (n=getopt (argc, argv, "dhik:o:pr:s:t:v")) != -1) {
     switch (n) {
     case 'd':
       discard_alpha = true; 
@@ -83,34 +85,7 @@ int main( int argc, char ** argv )
       Help ();
       return (EXIT_SUCCESS);
     case 'i': // not fully implemented for now
-      nimages = strlen (optarg);
-      if (nimages>6) {
-	printf ("Too many images given in -i option\n");
-	abort ();
-      }
-      for (int i=0; i<strlen(optarg); i++) {
-	bool fail=false;
-	char c=toupper(optarg[i]);
-	switch (optarg[i]) {
-	case 'B':
-	case 'D':
-	case 'F':
-	case 'L':
-	case 'R':
-	case 'U':
-	  for (int j=0; j<i; j++)
-	    if (op[j] == c)
-	      fail = true;
-	  if (!fail)
-	    op[i] = c;
-	  break;
-	default:
-	  fail = true;
-	  printf ("Unable to parse imagestring\n");
-	  abort ();
-	  break;
-	}
-      }
+      interp = false;
       break;
     case 'k':
       // Selection of interpolation kernel
@@ -181,16 +156,6 @@ int main( int argc, char ** argv )
   if (nn==0) {
     printf ("No f-files given!\n");
     return (EXIT_FAILURE);
-
-  if (bfiles.size()==1) {
-    printf ("Using %s as b-file for all\n", bfiles[0]);
-    for (unsigned int i=1; i<nn; i++)
-      bfiles.push_back (bfiles[0]);
-  }
-  else if (bfiles.size()!=nn && bfiles.size()!=0) 
-    printf ("Cannot proceed: incorrect number of b-files\n");
-
-
   }
 
   FreeImage_Initialise ();
@@ -259,29 +224,14 @@ int main( int argc, char ** argv )
 	gettimeofday (&tv1, NULL);
       }
     }
-    gettimeofday (&tv2, NULL);
+    gettimeofday (&tv1, NULL);
 
     Image *out = image_warp_generic(front);
- 
-    Image *out1 = image_warp_generic(back);
-    *out += *out1;
-    delete out1;
-
-    out1 = image_warp_generic(left);
-    *out += *out1;
-    delete out1;
-
-    out1 = image_warp_generic(right);
-    *out += *out1;
-    delete out1;
-
-    out1 = image_warp_generic(up);
-    *out += *out1;
-    delete out1;
-
-    out1 = image_warp_generic(down);
-    *out += *out1;
-    delete out1;
+    image_warp_generic(back,  out);
+    image_warp_generic(left,  out);
+    image_warp_generic(right, out);
+    image_warp_generic(up,    out);
+    image_warp_generic(down,  out);
     
     if (verbose) {
       gettimeofday (&tv2, NULL);
@@ -519,13 +469,14 @@ void Help ()
   printf ("  domemaster [options] images\n\nAvailable options:\n");
   printf ("  -d          Disable alpha channel\n");
   printf ("  -h          Print this help message\n");
+  printf ("  -i          Turn interpolation off\n");
   printf ("  -k <kernel> Select interpolation kernel. Possible values are\n"
 	  "              tanh, sinc, sinc2, lanzcos, hamming, hann. [tanh]\n");
   printf ("  -o <format> Output file format, possible values png, bmp, targa, jpeg. [png]\n");
   printf ("  -p          Disable padding\n");
-  printf ("  -r <angle>  Rotation angle (possibly)\n");
+  printf ("  -r <angle>  Rotation angle [0.0]\n");
   printf ("  -s <size>   Size of the output image. [1408]\n");
-  printf ("  -t <angle>  Tilt angle\n");
+  printf ("  -t <angle>  Tilt angle [0.0]\n");
   printf ("  -v          Verbose messages\n");
 }
 
