@@ -163,6 +163,9 @@ int main( int argc, char ** argv )
   int oldheight = 0;
 
   for (unsigned index=0; index<ffiles.size(); index++) {
+    if (verbose)
+      gettimeofday (&tv1, NULL);
+
     Image *front = new Image(ffiles[index], pad);
     Image *back;
     Image *left;
@@ -170,7 +173,6 @@ int main( int argc, char ** argv )
     Image *up;
     Image *down;
     
-    gettimeofday (&tv1, NULL);
     if (bfiles.size()==ffiles.size())
       back = new Image (bfiles[index], pad);
     else
@@ -224,7 +226,8 @@ int main( int argc, char ** argv )
 	gettimeofday (&tv1, NULL);
       }
     }
-    gettimeofday (&tv1, NULL);
+    if (verbose)
+      gettimeofday (&tv1, NULL);
 
     Image *out = image_warp_generic(front);
     image_warp_generic(back,  out);
@@ -243,7 +246,8 @@ int main( int argc, char ** argv )
     
     // Construct and save output image
     // SaveImage (const Image *out, const Image *front, bool)
-    gettimeofday (&tv1, NULL);
+    if (verbose)
+      gettimeofday (&tv1, NULL);
     FIBITMAP *outbitmap ;
     if (front->bpp==32 && discard_alpha) {
       outbitmap = FreeImage_Allocate (outwidth, outheight, 24);
