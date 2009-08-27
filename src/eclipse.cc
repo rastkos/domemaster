@@ -1,3 +1,43 @@
+/*      Copyright (c) 1995-2001, European Southern Observatory
+        All rights reserved.
+
+        Redistribution and use in source and binary forms, with or
+        without modification, are permitted provided that the following
+        conditions are met:
+
+                Redistributions of source code must retain the above
+                copyright notice, this list of conditions and the
+                following disclaimer. 
+
+                Redistributions in binary form must reproduce the above
+                copyright notice, this list of conditions and the
+                following disclaimer in the documentation and/or other
+                materials provided with the distribution. 
+
+                Neither the name of the European Southern Observatory
+                nor the names of its contributors may be used to endorse
+                or promote products derived from this software without
+                specific prior written permission. 
+
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND
+        CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+        INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+        MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+        DISCLAIMED. IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE
+        LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+        EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
+        TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+        ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+        LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING
+        IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+        THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+/*
+    Adapted by J. Reunanen, 2009
+ */
+
 #include "eclipse_types.h"
 #include <cmath>
 #include <stdio.h>
@@ -714,76 +754,79 @@ void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
 	  {xcu=-1.0;ycu=-1.0;} //5
       } //ruv<1.0
       while (true) {
-	(xcoord[2])[u+v*outwidth] = xcf;
-	(ycoord[2])[u+v*outwidth] = ycf;
+	int v0 = v; //outwidth-v;
+	int u0 = outwidth-u-1; 
+	//int v0 = outwidth-v-1;
+	(xcoord[2])[u0+v0*outwidth] = xcf;
+	(ycoord[2])[u0+v0*outwidth] = ycf;
 	if (xcf>=0.0 && ycf>=0.0) {
-	  if (umax[2]<u) umax[2] = u;
-	  if (vmax[2]<v) vmax[2] = v;
-	  if (umin[2]>u) umin[2] = u;
-	  if (vmin[2]>v) vmin[2] = v;
+	  if (umax[2]<u0) umax[2] = u0;
+	  if (vmax[2]<v0) vmax[2] = v0;
+	  if (umin[2]>u0) umin[2] = u0;
+	  if (vmin[2]>v0) vmin[2] = v0;
 	  nnz[2]++;
 	  break;
 	}
-	(xcoord[3])[u+v*outwidth] = xcl;
-	(ycoord[3])[u+v*outwidth] = ycl;
+	(xcoord[3])[u0+v0*outwidth] = xcl;
+	(ycoord[3])[u0+v0*outwidth] = ycl;
 	if (xcl>=0.0 && ycl>=0.0) {
-	  if (umax[3]<u) umax[3] = u;
-	  if (vmax[3]<v) vmax[3] = v;
-	  if (umin[3]>u) umin[3] = u;
-	  if (vmin[3]>v) vmin[3] = v;
+	  if (umax[3]<u0) umax[3] = u0;
+	  if (vmax[3]<v0) vmax[3] = v0;
+	  if (umin[3]>u0) umin[3] = u0;
+	  if (vmin[3]>v0) vmin[3] = v0;
 	  nnz[3]++;
 	  break;
 	}
-	(xcoord[4])[u+v*outwidth] = xcr;
-	(ycoord[4])[u+v*outwidth] = ycr;
+	(xcoord[4])[u0+v0*outwidth] = xcr;
+	(ycoord[4])[u0+v0*outwidth] = ycr;
 	if (xcr>=0.0 && ycr>=0.0) {
-	  if (umax[4]<u) umax[4] = u;
-	  if (vmax[4]<v) vmax[4] = v;
-	  if (umin[4]>u) umin[4] = u;
-	  if (vmin[4]>v) vmin[4] = v;
+	  if (umax[4]<u0) umax[4] = u0;
+	  if (vmax[4]<v0) vmax[4] = v0;
+	  if (umin[4]>u0) umin[4] = u0;
+	  if (vmin[4]>v0) vmin[4] = v0;
 	  nnz[4]++;
 	  break;
 	}
-	(xcoord[5])[u+v*outwidth] = xcu;
-	(ycoord[5])[u+v*outwidth] = ycu;
+	(xcoord[5])[u0+v0*outwidth] = xcu;
+	(ycoord[5])[u0+v0*outwidth] = ycu;
 	if (xcu>=0.0 && ycu>=0.0) {
-	  if (umax[5]<u) umax[5] = u;
-	  if (vmax[5]<v) vmax[5] = v;
-	  if (umin[5]>u) umin[5] = u;
-	  if (vmin[5]>v) vmin[5] = v;
+	  if (umax[5]<u0) umax[5] = u0;
+	  if (vmax[5]<v0) vmax[5] = v0;
+	  if (umin[5]>u0) umin[5] = u0;
+	  if (vmin[5]>v0) vmin[5] = v0;
 	  nnz[5]++;
 	  break;
 	}
-	(xcoord[0])[u+v*outwidth] = xcb;
-	(ycoord[0])[u+v*outwidth] = ycb;
+	(xcoord[0])[u0+v0*outwidth] = xcb;
+	(ycoord[0])[u0+v0*outwidth] = ycb;
 	if (xcb>=0.0 && ycb>=0.0) {
-	  if (umax[0]<u) umax[0] = u;
-	  if (vmax[0]<v) vmax[0] = v;
-	  if (umin[0]>u) umin[0] = u;
-	  if (vmin[0]>v) vmin[0] = v;
+	  if (umax[0]<u0) umax[0] = u0;
+	  if (vmax[0]<v0) vmax[0] = v0;
+	  if (umin[0]>u0) umin[0] = u0;
+	  if (vmin[0]>v0) vmin[0] = v0;
 	  nnz[0]++;
 	  break;
 	}
-	(xcoord[1])[u+v*outwidth] = xcd;
-	(ycoord[1])[u+v*outwidth] = ycd;
+	(xcoord[1])[u0+v0*outwidth] = xcd;
+	(ycoord[1])[u0+v0*outwidth] = ycd;
 	if (xcd>=0.0 || ycd>=0.0) {
-	  if (umax[1]<u) umax[1] = u;
-	  if (vmax[1]<v) vmax[1] = v;
-	  if (umin[1]>u) umin[1] = u;
-	  if (vmin[1]>v) vmin[1] = v;
+	  if (umax[1]<u0) umax[1] = u0;
+	  if (vmax[1]<v0) vmax[1] = v0;
+	  if (umin[1]>u0) umin[1] = u0;
+	  if (vmin[1]>v0) vmin[1] = v0;
 	  nnz[1]++;
 	  break;
 	}
 	if (ruv<=1.0) {
-	    xint.push_back (u);
-	    yint.push_back (v);
+	    xint.push_back (u0);
+	    yint.push_back (v0);
 	}
 	break;
       }
     }
   if (xint.size()>0) {
     int i = xint.size();
-    printf ("Interpolation needed for %d pixels\n", i);
+    printf ("***BUG***\n  Interpolation needed for %d pixels\n", i);
   }
 }
 
