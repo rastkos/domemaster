@@ -19,6 +19,11 @@ class Image {
   Image (const char *, int);
   Image (int, int, int);
   ~Image ();
+  void Modulate (float, float, float, float);
+  void Histogram (float);
+  void ToHSB ();
+  void ToRGB ();
+  void HistogramEqualize (Image *, float);
 
   int width;
   int height;
@@ -26,8 +31,14 @@ class Image {
 
   float *red;
   float *green;
-  float *blue;
+  float *blue;  
   float *alpha;
+  float *saturation;
+  float *brightness;
+  float *hue;
+
+  int *histogram;
+  float *histtrans;
   PROJTYPE proj;
   const char* imname;
   int cpi;

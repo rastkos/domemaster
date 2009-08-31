@@ -48,10 +48,10 @@
 extern int outwidth;
 extern int outheight;
 extern float angle;
+extern float aperture;
 extern int pad;
 extern bool interp;
 
-float ap=PI_NUMB;// *180.0/180.0;
 float *xcoord[6];
 float *ycoord[6];
 int umin[6], umax[6], vmin[6], vmax[6];
@@ -614,6 +614,7 @@ void FreeTrans ()
 void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
 		const char  *kernel_type)
 {
+  float ap = aperture/180.0*PI_NUMB;
   float np = float(pad); //(angle/180.0-0.5)*(float)inwidth + 
   float inwidth, inheight;
   inwidth = inwidth1;
@@ -841,6 +842,8 @@ void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
 void trans (float *res, char ttype, int u, int v, int inwidth, int inheight, float alpha, float beta)
 {
   float np = 0;
+  float ap = aperture/180.0*PI_NUMB;
+
   // Normalizing the coordinates of the output image between [-1,1]
   float udot = 2.0*(float)u/(float)outwidth-1.0;
   float vdot = 2.0*(float)v/(float)outheight-1.0;

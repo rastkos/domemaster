@@ -55,6 +55,7 @@ int outheight = 1408;
 // Orientation of the dome 
 float alpha = 0.0; // Rotation around z-axis
 float beta = 0.0;  // Tilt of the dome
+float aperture = 180.0;  // Full dome
 
 float angle = 90.0; // Not used at the moment!
 
@@ -68,6 +69,7 @@ int main( int argc, char ** argv )
   int pwidth;
   timeval tv1,tv2,tv3;
   long t;
+  float saturation = 1.0;
   int nimages = 6;
   char op[6] = {'F', 'B', 'D', 'L', 'R', 'U'};
 
@@ -76,8 +78,14 @@ int main( int argc, char ** argv )
     return (EXIT_SUCCESS);
   }
 
-  while ( (n=getopt (argc, argv, "dhik:o:pr:s:t:v")) != -1) {
+  while ( (n=getopt (argc, argv, "a:c:dhik:o:pr:s:t:v")) != -1) {
     switch (n) {
+    case 'a':
+      aperture=atof (optarg); 
+      break;
+    case 'c':
+      saturation=atof (optarg); 
+      break;
     case 'd':
       discard_alpha = true; 
       break;
@@ -173,27 +181,30 @@ int main( int argc, char ** argv )
     Image *up;
     Image *down;
     
-    if (bfiles.size()==ffiles.size())
+    //front->Histogram(1.0);
+    //front->ToRGB();
+
+    if (index<bfiles.size())
       back = new Image (bfiles[index], pad);
     else
       back = new Image (NULL, pad);
 
-    if (lfiles.size()==ffiles.size())
+    if (index<lfiles.size())
       left = new Image (lfiles[index], pad);
     else
       left = new Image (NULL, pad);
 
-    if (rfiles.size()==ffiles.size())
+    if (index<rfiles.size())
       right = new Image (rfiles[index], pad);
     else
       right = new Image (NULL, pad);
 
-    if (dfiles.size()==ffiles.size())
+    if (index<dfiles.size())
       down = new Image (dfiles[index], pad);
     else
       down = new Image (NULL, pad);
 
-    if (ufiles.size()==ffiles.size())
+    if (index<ufiles.size())
       up = new Image (ufiles[index], pad);
     else
       up = new Image (NULL, pad);
@@ -240,6 +251,18 @@ int main( int argc, char ** argv )
       gettimeofday (&tv2, NULL);
       t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
       printf ("Interpolations took %ld milliseconds\n", t);
+    }
+
+    if (saturation!=1.0) {
+      if (verbose)
+	gettimeofday (&tv1, NULL);
+      out->Modulate (saturation, -0.2, 1.0, 0.0);
+      out->ToRGB (); // HACK
+      if (verbose) {
+	gettimeofday (&tv2, NULL);
+	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
+	printf ("Colour modifications took %ld milliseconds\n", t);
+      }
     }
 
     cpi = front->cpi;
@@ -471,6 +494,8 @@ void Help ()
   const char *domever = VERSION ;
   printf ("Domemaster %s using FreeImage %s\n\nUSAGE:\n", domever, fiver);
   printf ("  domemaster [options] images\n\nAvailable options:\n");
+  printf ("  -a <angle>  Aperture, fulldome is 180 degrees [180]\n");
+  printf ("  -c          Saturation of colours\n");
   printf ("  -d          Disable alpha channel\n");
   printf ("  -h          Print this help message\n");
   printf ("  -i          Turn interpolation off\n");

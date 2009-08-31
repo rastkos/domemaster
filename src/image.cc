@@ -3,14 +3,16 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <cmath>
 
 extern bool discard_alpha;
 extern OUTPUT_TYPE outtype;
 extern Output output[4];
 
 Image::Image (int w, int h, int b)
-  : width(w), height(h), bpp(b), red(NULL), green(NULL), blue(NULL), 
-    alpha(NULL), proj(UNKNOWN), pad(0)
+  : width(w), height(h), bpp(b), red(NULL), green(NULL), blue(NULL),
+    alpha(NULL), saturation(NULL), brightness(NULL), hue(NULL), histogram(NULL), 
+    histtrans(NULL), proj(UNKNOWN), pad(0)
 {
   red   = new float[h*w];
   blue  = new float[h*w];
@@ -34,7 +36,8 @@ Image::Image (int w, int h, int b)
 
 Image::Image (const char *name, int npad)
   :width(0), height(0), bpp(0), red(NULL), green(NULL), blue(NULL), 
-   alpha(NULL), proj(UNKNOWN), pad(npad)
+   alpha(NULL), saturation(NULL), brightness(NULL), hue(NULL), histogram(NULL), 
+   histtrans(NULL), proj(UNKNOWN), pad(npad)
 {
   imname = name;
   if (imname!=NULL) {
@@ -126,6 +129,18 @@ Image::~Image ()
     delete[] blue;
   if (alpha!=NULL)
     delete[] alpha;
+
+  if (saturation!=NULL)
+    delete[] saturation;
+  if (brightness!=NULL)
+    delete[] brightness;
+  if (hue!=NULL)
+    delete[] hue;
+
+  if (histogram!=NULL)
+    delete[] histogram;
+  if (histtrans!=NULL)
+    delete[] histtrans;
 }
 
 bool Image::operator == (const Image & d )
@@ -157,3 +172,243 @@ bool Image::operator += (const Image & d )
 	alpha[i] += d.alpha[i];
   }
 }
+
+/*
+The following routine is derived from ImageMagick; adapted by J. Reunanen
+
+
+Copyright 1999-2009 ImageMagick Studio LLC, a non-profit organization 
+dedicated to making software imaging solutions freely available.
+
+   Licensed under the ImageMagick License (the "License"); you may not use
+   this file except in compliance with the License.  You may obtain a copy
+   of the License at
+
+     http://www.imagemagick.org/script/license.php
+
+   Unless required by applicable law or agreed to in writing, software
+   distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+   WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.  See the
+   License for the specific language governing permissions and limitations
+   under the License.
+*/
+
+void Image::ToHSB ()
+{
+  if (hue==NULL)
+    hue = new float[(height+2*pad)*(width+2*pad)];
+  if (saturation==NULL)
+    saturation = new float[(height+2*pad)*(width+2*pad)];
+  if (brightness==NULL)
+    brightness = new float[(height+2*pad)*(width+2*pad)];
+
+  for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
+    float min= (red[i] < green[i] ? red[i] : green[i]);
+    if ( blue[i] < min)
+      min= blue[i];
+    float max = (red[i] > green[i] ? red[i] : green[i]);
+    if ( blue[i] > max)
+      max= blue[i];
+
+    if (max == 0.0) {
+      saturation[i] = 0.0;
+      brightness[i] = 0.0;
+      hue[i] = 0.0;
+      continue;
+    }
+    float range = max - min;
+
+    saturation[i] = range / max;
+    brightness[i] = max/255.0; 
+
+    if (range == 0.0) {
+      hue[i] = 0.0;
+      continue;
+    }
+
+    if ( red[i] == max)
+      hue[i]=(green[i]- blue[i])/range;
+    else
+      if ( green[i] == max)
+	hue[i]= (2.0+(blue[i]- red[i])/range);
+      else
+	hue[i]= (4.0+(red[i]- green[i])/range);
+    hue[i]/=6.0;
+    if (hue[i] < 0.0)
+      hue[i]+=1.0;
+  }
+
+}
+
+void Image::ToRGB ()
+{
+  for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
+    if (saturation[i]>1.0)
+      saturation[i]=1.0;
+    if (saturation[i]<0.0)
+      saturation[i]=0.0;
+    if (brightness[i]>1.0)
+      brightness[i]=1.0;
+    if (brightness[i]<0.0)
+      brightness[i]=0.0;
+    
+    if (saturation[i] == 0.0) {
+      red[i]=255.0*brightness[i]+0.5;
+      green[i]=red[i];
+      blue[i]=red[i];
+      continue;
+    }
+    double h=6.0*(hue[i]-floor(hue[i]));
+    double f=h-floor((double) h);
+    double p=brightness[i]*(1.0-saturation[i]);
+    double q=brightness[i]*(1.0-saturation[i]*f);
+    double t=brightness[i]*(1.0-(saturation[i]*(1.0-f)));
+    
+    switch ((int) h)  {
+    case 0:
+    default: {
+      red[i]= 255.0*brightness[i]+0.5;
+      green[i]= 255.0*t+0.5;
+      blue[i]= 255.0*p+0.5;
+      break;
+    }
+    case 1:    {
+      red[i]= 255.0*q+0.5;
+      green[i]= 255.0*brightness[i]+0.5;
+      blue[i]= 255.0*p+0.5;
+      break;
+    }
+    case 2:    {
+      red[i]= 255.0*p+0.5;
+      green[i]= 255.0*brightness[i]+0.5;
+      blue[i]= 255.0*t+0.5;
+      break;
+    }
+    case 3:    {
+      red[i]= 255.0*p+0.5;
+      green[i]= 255.0*q+0.5;
+      blue[i]= 255.0*brightness[i]+0.5;
+      break;
+    }
+    case 4:   {
+      red[i]= 255.0*t+0.5;
+      green[i]= 255.0*p+0.5;
+      blue[i]= 255.0*brightness[i]+0.5;
+      break;
+    }
+    case 5:   {
+      red[i]= 255.0*brightness[i]+0.5;
+      green[i]= 255.0*p+0.5;
+      blue[i]= 255.0*q+0.5;
+      break;
+    }}
+    // No need to check whether the colour values are legit, as 
+    // they are checked later in main.cc
+
+  }
+}
+
+void Image::Modulate (float sat, float brg2, float brg1, float brg0)
+{
+  if (hue == NULL) {
+    ToHSB ();
+  }
+  for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
+    
+    saturation[i] = sat*saturation[i];
+    //brightness = brg2*brightness*brightness + brg1*brightness + brg0;
+    //brightness = (brightness-brg2)/(brg1-brg2);
+
+    //float lum = 255.0 - brightness;
+//     float lum = brightness;
+//     if (lum<brg2)
+//       lum = lum/128.0*brg2;
+//     else
+//       lum = (255.0-(2.0*brg2-lum))*128.0/(255.0-brg2);
+//     //brightness = 255.0 - lum;
+//     brightness = lum;
+
+    //brightness = asinh(brg2*brightness)/asinh(brg2);
+
+//     brightness[i] = (brightness[i]+0.2/1.2);
+//     if (brightness[i]<0.55)
+//       brightness[i] = 0.55+(brightness[i]-0.55)*4;
+
+  }
+}
+
+void Image::Histogram (float frac)
+{
+  int cumhist[256];
+  if (hue==NULL) {
+    printf ("ToHSB\n");
+    ToHSB();
+  }
+  if (histogram == NULL) {
+    histogram = new int[256];
+    histtrans = new float[256];
+  }
+  for (int i=0; i<256; i++) {
+    histogram[i] = 0;
+    histtrans[i] = 0.0;
+    cumhist[i] = 0;
+  }
+
+  for (int i=pad; i< (width+pad); i++)
+    for (int j=pad; j< (height+pad); j++) {
+      int n = 255.0*brightness[i+(width+2*pad)*j];
+      histogram[n]++;
+    }
+
+  cumhist[0] = histogram[0];
+  for (int i=1; i<256; i++)
+    cumhist[i] = cumhist[i-1]+histogram[i];
+
+  for (int i=0; i<256; i++)
+    printf ("%d %d %d\n", i, histogram[i], cumhist[i]);
+
+  int min = 0;
+  int max = 255;
+  while (histogram[min] == 0 && min<256) min++;
+  while (histogram[max] == 0 && min>-1) max--;
+
+  for (int i = min; i<256; i++) {
+    histtrans[i] = (float)cumhist[i]/(float)cumhist[255]*255.0;      
+  }
+
+  for (int i = 0; i<256; i++) 
+    histtrans[i] = frac*histtrans[i] + (1.0-frac)*(float)i;
+
+  for (int i = 0; i< (height+2*pad)*(width+2*pad); i++) {
+    float nr=255.0*brightness[i];
+    if (nr<0) nr=0;
+    if (nr>255) nr=255;
+    
+    if (nr<254){
+      // Does this actually work like I think it should???
+      float fr = nr - floor(nr);
+      float d = histtrans[(int)nr+1] - histtrans[(int)nr];
+      brightness[i] = (histtrans[(int)nr]+d*fr)/255.0; 
+    }
+    else 
+      brightness[i] = histtrans[(int)nr]/255.0;
+  }
+}
+
+
+void Image::HistogramEqualize (Image *image, float frac)
+{
+  if (histogram == NULL)
+    Histogram (frac);
+  if (image->hue == NULL)
+    image->ToHSB ();
+
+  for (int i = 0; i< (image->height+2*pad)*(image->width+2*pad); i++) {
+    int nr=255.0*image->brightness[i];
+    if (nr<0) nr=0;
+    if (nr>255) nr=255;
+     
+    image->brightness[i] = histtrans[nr]/255.0;
+  }
+}
+
