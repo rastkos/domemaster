@@ -316,6 +316,7 @@ void Image::Modulate (float sat, float brg2, float brg1, float brg0)
   for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
     
     saturation[i] = sat*saturation[i];
+    brightness[i] = pow(brightness[i], brg2);
     //brightness = brg2*brightness*brightness + brg1*brightness + brg0;
     //brightness = (brightness-brg2)/(brg1-brg2);
 
@@ -330,9 +331,9 @@ void Image::Modulate (float sat, float brg2, float brg1, float brg0)
 
     //brightness = asinh(brg2*brightness)/asinh(brg2);
 
-//     brightness[i] = (brightness[i]+0.2/1.2);
-//     if (brightness[i]<0.55)
-//       brightness[i] = 0.55+(brightness[i]-0.55)*4;
+    //     brightness[i] = (brightness[i]+0.2/1.2);
+    // if (brightness[i]<0.55)
+    //   brightness[i] = 0.55+(brightness[i]-0.55)*4;
 
   }
 }

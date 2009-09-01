@@ -601,6 +601,171 @@ void reverse_tanh_kernel(float * data, int nn)
 }
 #undef KERNEL_SW
 
+/*-------------------------------------------------------------------------*/
+/**
+  @brief	Interpolate a vector along new abscissas.
+  @param	x		List of x positions.
+  @param	y		List of y positions.
+  @param	len		Number of samples in x and y.
+  @param	splx	Input new list of x positions.
+  @param	sply	Output list of interpolated y positions.
+  @param	spllen	Number of samples in splx and sply.
+  @return	Int 0 if Ok, -1 if error.
+
+  Reference:
+
+  \begin{verbatim}
+  	Numerical Analysis, R. Burden, J. Faires and A. Reynolds.
+  	Prindle, Weber & Schmidt 1981 pp 112
+  \end{verbatim}
+
+  Provide in input a known list of x and y values, and a list where
+  you want the signal to be interpolated. The returned signal is
+  written into sply.
+ */
+/*--------------------------------------------------------------------------*/
+int function1d_natural_spline( pixelvalue *x, pixelvalue *y,
+    	int 			len, pixelvalue	* 	splx, pixelvalue	* 	sply,
+    	int 			spllen)
+{
+  int 			end;
+  int 			loc,
+    found;
+  register int 	i,
+    j,
+    n;
+  double 		*	h;			/* vector of deltas in x */
+  double 		*	alpha;
+  double 		*	l,
+    *	mu,
+    *	z,
+    *	a,
+    *	b,
+    *	c,
+    *	d,
+    v;
+  
+  end = len - 1;
+  
+  a = (double *)malloc(sizeof(double) * spllen * 9) ;
+  b = a + len;
+  c = b + len;
+  d = c + len;
+  h = d + len;
+  l = h + len;
+  z = l + len;
+  mu = z + len;
+  alpha = mu + len;
+  
+  for (i = 0; i < len; i++) {
+    a[i] = (double)y[i];
+  }
+  
+  /* Calculate vector of differences */
+  for (i = 0; i < end; i++) {
+    h[i] = (double)x[i + 1] - (double)x[i];
+    if (h[i] < 0.0) {
+      free(a) ;
+      return -1;
+    }
+  }
+  
+  /* Calculate alpha vector */
+  for (n = 0, i = 1; i < end; i++, n++) {
+    /* n = i - 1 */
+    alpha[i] = 3.0 * ((a[i+1] / h[i]) - (a[i] / h[n]) - (a[i] / h[i]) +
+		      (a[n] / h[n]));
+  }
+  
+  /* Vectors to solve the tridiagonal matrix */
+  l[0] = l[end] = 1.0;
+  mu[0] = mu[end] = 0.0;
+  z[0] = z[end] = 0.0;
+  c[0] = c[end] = 0.0;
+  
+  /* Calculate the intermediate results */
+  for (n = 0, i = 1; i < end; i++, n++) {
+    /* n = i-1 */
+    l[i] = 2 * (h[i] + h[n]) - h[n] * mu[n];
+    mu[i] = h[i] / l[i];
+    z[i] = (alpha[i] - h[n] * z[n]) / l[i];
+  }
+  for (n = end, j = end - 1; j >= 0; j--, n--) {
+    /* n = j + 1 */
+    c[j] = z[j] - mu[j] * c[n];
+    b[j] = (a[n] - a[j]) / h[j] - h[j] * (c[n] + 2.0 * c[j]) / 3.0;
+    d[j] = (c[n] - c[j]) / (3.0 * h[j]);
+  }
+  
+  /* Now calculate the new values */
+  for (j = 0; j < spllen; j++) {
+    v = (double)splx[j];
+    sply[j] = (pixelvalue)0;
+    
+    /* Is it outside the interval? */
+    if ((v < (double)x[0]) || (v > (double)x[end])) {
+      continue;
+    }
+    /* Search for the interval containing v in the x vector */
+    loc = function1d_search_value(x, len, (pixelvalue)v, &found);
+    if (found) {
+      sply[j] = y[loc];
+    } else {
+      loc--;
+      v -= (double)x[loc];
+      sply[j] = (pixelvalue)(a[loc]+v*(b[loc]+v*(c[loc]+v*d[loc])));
+    }
+  }
+  free(a) ;
+  return 0;
+}
+
+/*-------------------------------------------------------------------------*/
+/**
+  @brief	Conducts a binary search for a value.
+  @param	x			Contains the abscissas of interpolation.
+  @param	len			Length of the x array.
+  @param	key			The value to locate in x.
+  @param	found_ptr	Output flag, 1 if value was found, else 0.
+  @return	The index of the largest value in x for which x[i]<key.
+
+  This function does a binary search for a value in an array. This
+  routine is to be called only if key is in the interval between x[0]
+  and x[len-1]. The input x array is supposed sorted.
+
+ */
+/*--------------------------------------------------------------------------*/
+int function1d_search_value(pixelvalue	*	x,
+    	int 			len,
+    	pixelvalue 		key,
+    	int 		*	found_ptr)
+{
+  int	high,
+    low,
+    middle;
+  
+  low  = 0;
+  high = len - 1;
+  
+  while (high >= low) {
+    middle = (high + low) / 2;
+    if (key > x[middle]) {
+      low = middle + 1;
+    } else if (key < x[middle]) {
+      high = middle - 1;
+    } else {
+      *found_ptr = 1;
+      return (middle);
+    }
+  }
+  *found_ptr = 0;
+  return (low);
+}
+
+
+
+
+
 void FreeTrans ()
 {
   for (int i=0; i<6; i++) {
@@ -949,4 +1114,5 @@ void trans (float *res, char ttype, int u, int v, int inwidth, int inheight, flo
   if (res[1]>inheight || res[1]<-1.0) 
     res[1] = -1.0;
 }
+
 

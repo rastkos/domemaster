@@ -39,8 +39,6 @@ OUTPUT_TYPE outtype = OUTPUT_PNG;
 char buffer[64];
 const char *root = "del";
 
-//enum OUTPUT_TYPE  { OUTPUT_PNG=0, OUTPUT_TARGA, OUTPUT_BMP, OUTPUT_JPEG };
-
 Output output[4] = {
   {".png", FIF_PNG, PNG_DEFAULT, true},
   {".tga", FIF_TARGA, TARGA_DEFAULT, true},
@@ -70,6 +68,7 @@ int main( int argc, char ** argv )
   timeval tv1,tv2,tv3;
   long t;
   float saturation = 1.0;
+  float gamma=1.0;
   int nimages = 6;
   char op[6] = {'F', 'B', 'D', 'L', 'R', 'U'};
 
@@ -78,7 +77,7 @@ int main( int argc, char ** argv )
     return (EXIT_SUCCESS);
   }
 
-  while ( (n=getopt (argc, argv, "a:c:dhik:o:pr:s:t:v")) != -1) {
+  while ( (n=getopt (argc, argv, "a:c:dg:hik:o:pr:s:t:v")) != -1) {
     switch (n) {
     case 'a':
       aperture=atof (optarg); 
@@ -88,6 +87,9 @@ int main( int argc, char ** argv )
       break;
     case 'd':
       discard_alpha = true; 
+      break;
+    case 'g':
+      gamma=atof (optarg); 
       break;
     case 'h':
       Help ();
@@ -253,10 +255,10 @@ int main( int argc, char ** argv )
       printf ("Interpolations took %ld milliseconds\n", t);
     }
 
-    if (saturation!=1.0) {
+    if (saturation!=1.0 | gamma!=1.0) {
       if (verbose)
 	gettimeofday (&tv1, NULL);
-      out->Modulate (saturation, -0.2, 1.0, 0.0);
+      out->Modulate (saturation, gamma, 1.0, 0.0);
       out->ToRGB (); // HACK
       if (verbose) {
 	gettimeofday (&tv2, NULL);
@@ -497,6 +499,7 @@ void Help ()
   printf ("  -a <angle>  Aperture, fulldome is 180 degrees [180]\n");
   printf ("  -c          Saturation of colours\n");
   printf ("  -d          Disable alpha channel\n");
+  printf ("  -g <value>  Ably gamma correction to the image\n");
   printf ("  -h          Print this help message\n");
   printf ("  -i          Turn interpolation off\n");
   printf ("  -k <kernel> Select interpolation kernel. Possible values are\n"

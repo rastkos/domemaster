@@ -16,6 +16,11 @@ double sinc(double x);
 void reverse_tanh_kernel(float * data, int nn);
 void trans (float *res, char ttype, int u, int v, int nx, int ny, float alpha, float beta);
 
+int function1d_search_value(pixelvalue * x, int len, pixelvalue key, int * found_ptr) ;
+int function1d_natural_spline(pixelvalue *, pixelvalue	*, int,	pixelvalue	* 	splx,
+    	pixelvalue	* 	sply,
+			      int 			spllen);
+
 Image * image_warp_generic(const Image *image_in, Image *image_out=NULL);
 void CalcTrans (int inwidth, int inheight, float alpha, float beta, const char *kernel_type);
 void FreeTrans ();
