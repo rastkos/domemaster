@@ -9,6 +9,8 @@ extern bool discard_alpha;
 extern OUTPUT_TYPE outtype;
 extern Output output[4];
 
+float GimpContrastBrightness (float value, float databrightness, float datacontrast);
+
 Image::Image (int w, int h, int b)
   : width(w), height(h), bpp(b), red(NULL), green(NULL), blue(NULL),
     alpha(NULL), saturation(NULL), brightness(NULL), hue(NULL), histogram(NULL), 
@@ -308,15 +310,72 @@ void Image::ToRGB ()
   }
 }
 
-void Image::Modulate (float sat, float brg2, float brg1, float brg0)
+void Image::Modulate (float bright, float contrast, float gamma)
 {
+  float databrightness = bright/255.0;
+  float datacontrast = contrast/127.0;
+  float contpow;
+
+  if (datacontrast <0.0)
+    contpow = 1.0 + datacontrast;
+  else
+    contpow = (datacontrast == 1.0) ? 127 : 1.0 / (1.0 - datacontrast);
+
+  float ctrans[256];
+  for (int i=0; i<256; i++) {
+    ctrans[i] = (float)i;
+    ctrans[i] = GimpContrastBrightness (ctrans[i]/255.0,  contpow, databrightness);
+    if (ctrans[i] >= 0.0)
+      ctrans[i] = 255.0*pow(ctrans[i], gamma);
+  }
+
+  for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
+    int rid = (int)red[i];
+    int gid = (int)green[i];
+    int bid = (int)blue[i];
+
+    if (rid>=0 & rid<255) 
+      red[i]   = ctrans[rid] + (ctrans[rid+1] - ctrans[rid])*( red[i] - (float)rid);
+    if (gid>=0 & gid<255) 
+      green[i] = ctrans[gid] + (ctrans[gid+1] - ctrans[gid])*(green[i]- (float)gid);
+    if (bid>=0 & bid<255) 
+      blue[i]  = ctrans[bid] + (ctrans[bid+1] - ctrans[bid])*( blue[i]- (float)bid);    
+  }
+}
+
+void Image::ModulateHSB (float sat, float bright, float contrast, float gamma)
+{
+  float databrightness = bright/255.0;
+  float datacontrast = contrast/127.0;
+  float contpow;
+
+  if (datacontrast <0.0)
+    contpow = 1.0 + datacontrast;
+  else
+    contpow = (datacontrast == 1.0) ? 127 : 1.0 / (1.0 - datacontrast);
+
+  float ctrans[256];
+  for (int i=0; i<256; i++) {
+    ctrans[i] = (float)(i);
+    ctrans[i] = GimpContrastBrightness (ctrans[i]/255.0,  contpow, databrightness);
+    if (ctrans[i] >= 0.0)
+      ctrans[i] = 255.0*pow(ctrans[i], gamma);
+  }
+
   if (hue == NULL) {
     ToHSB ();
   }
-  for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {
-    
+
+  for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {    
     saturation[i] = sat*saturation[i];
-    brightness[i] = pow(brightness[i], brg2);
+  }
+
+  if (bright != 0.0 | contrast != 0.0 | gamma!= 1.0) 
+    for (int i=0; i< (height+2*pad)*(width+2*pad); i++) {    
+
+    //brightness[i] = (brightness[i]-0.5)*1.3+0.5;
+    //brightness[i] = brightness[i]*1.4;
+    //brightness[i] = pow(brightness[i], brg2);
     //brightness = brg2*brightness*brightness + brg1*brightness + brg0;
     //brightness = (brightness-brg2)/(brg1-brg2);
 
@@ -335,8 +394,12 @@ void Image::Modulate (float sat, float brg2, float brg1, float brg0)
     // if (brightness[i]<0.55)
     //   brightness[i] = 0.55+(brightness[i]-0.55)*4;
 
+      int bid = (int)(255.0*brightness[i]);
+      if (bid>=0 & bid<255) 
+	brightness[i]  = ctrans[bid] + (ctrans[bid+1] - ctrans[bid])*( brightness[i]- (float)bid);
   }
 }
+
 
 void Image::Histogram (float frac)
 {
@@ -411,5 +474,33 @@ void Image::HistogramEqualize (Image *image, float frac)
      
     image->brightness[i] = histtrans[nr]/255.0;
   }
+}
+
+float GimpContrastBrightness (float value, float datacontrast, float databrightness)
+{
+  float nvalue;
+  
+
+  /* apply brightness */
+  if (databrightness < 0.0)
+    value = value * (1.0 + databrightness);
+  else
+    value = value + ((1.0 - value) * databrightness);
+  
+  if (value > 0.5) {
+    nvalue = 1.0 - value;
+    if (nvalue < 0.0)
+      nvalue = 0.0;
+    nvalue = 0.5 * pow (2.0 * nvalue, datacontrast);
+    value = 1.0 - nvalue;
+  }
+  else {
+    if (value < 0.0)
+      value = 0.0;
+    else 
+      value = 0.5 * pow (2.0 * value, datacontrast);
+  }
+  
+  return (value);
 }
 
