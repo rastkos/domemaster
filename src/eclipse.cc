@@ -115,7 +115,7 @@ Image* image_warp_generic (const Image *inimage, Image *outimage1)
   int          leaps[16] ;
   
   if (inimage == NULL) return NULL ;
-  
+
   /* Compute new image size   */
   lx_out = (int)outwidth ;
   ly_out = (int)outheight;
@@ -380,9 +380,9 @@ float * generate_interpolation_kernel(const char * kernel_type)
   int     	samples = KERNEL_SAMPLES ;
 
   if (kernel_type==NULL) {
-    tab = generate_interpolation_kernel("tanh") ;
+    tab = generate_interpolation_kernel("sinc") ;
   } else if (!strcmp(kernel_type, "default")) {
-    tab = generate_interpolation_kernel("tanh") ;
+    tab = generate_interpolation_kernel("sinc") ;
   } else if (!strcmp(kernel_type, "sinc")) {
     tab = (float*)malloc(samples * sizeof(float)) ;
     tab[0] = 1.0 ;
