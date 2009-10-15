@@ -12,10 +12,17 @@
 #include <time.h>
 #include <sys/time.h>
 
+#include <pthread.h>
+
 #include "main.h"
 #include "eclipse_types.h"
 #include "../config.h"
 #include "image.h"
+
+#ifdef HAVE_GTK
+#include <gdk/gdk.h>
+#include <pango/pangocairo.h>
+#endif
 
 #ifndef EXIT_FAILURE
 #define EXIT_FAILURE 1
@@ -24,10 +31,22 @@
 #define EXIT_SUCCESS 0
 #endif
 
-int main( int argc, char ** argv );
+
+/*
+ *  IOThread: Load Images, Save Output. Preference always to save!
+ *  ProcessThread: 
+ *
+ *
+ */
+
+
+
+int main (int argc, char ** argv );
 void Help (void);
-void Pad (Image *front, Image *back, Image *left, Image *right, Image *down, Image *up, 
+void Pad (Image *front, Image *back, Image *left, 
+	  Image *right, Image *down, Image *up, 
 	  bool padseams);
+void * ProcessImages (void * thread_data);
 
 bool verbose = false;
 bool discard_alpha = false;
@@ -37,7 +56,6 @@ bool interp = true;
 int pad = 4;
 OUTPUT_TYPE outtype = OUTPUT_PNG;
 char buffer[64];
-const char *root = "del";
 
 Output output[4] = {
   {".png", FIF_PNG, PNG_DEFAULT, true},
@@ -56,10 +74,63 @@ float beta = 0.0;  // Tilt of the dome
 float aperture = 180.0;  // Full dome
 
 float angle = 90.0; // Not used at the moment!
+float saturation = 1.0; // Not used at the moment!
+float gammacorr=1.0;
+float brightcorr=0.0;
+float contrastcorr=0.0;
+const char *kerneltype = "sinc"; // Interpolation kernel
+
+
+void * ProcessImages (void * thread_data)
+{
+  Image ** images = (Image **)thread_data;
+  timeval tv1,tv2;
+  if (verbose)
+    gettimeofday (&tv1, NULL);
+  
+  Image *out = image_warp_generic(images[0]);
+  image_warp_generic(images[1], out);
+  image_warp_generic(images[2], out);
+  image_warp_generic(images[3], out);
+  image_warp_generic(images[4], out);
+  image_warp_generic(images[5], out);
+
+  if (verbose) {
+    gettimeofday (&tv2, NULL);
+    long t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
+    printf ("Interpolations took %ld milliseconds\n", t);
+  }
+
+  // HACK: saturation!=1.0 
+  if (saturation != 1.0) {
+    if (verbose)
+      gettimeofday (&tv1, NULL);
+    out->ModulateHSB (saturation, brightcorr, contrastcorr, gammacorr);
+    out->ToRGB (); 
+    if (verbose) {
+      gettimeofday (&tv2, NULL);
+      long t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
+      printf ("HSB colour modifications took %ld milliseconds\n", t);
+    }
+  }
+  else if (gammacorr!=1.0 | contrastcorr!=0.0 | brightcorr!= 0.0) {
+    if (verbose)
+      gettimeofday (&tv1, NULL);
+    out->Modulate (brightcorr, contrastcorr, gammacorr);
+    //out->ToRGB (); // HACK
+    if (verbose) {
+      gettimeofday (&tv2, NULL);
+      long t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
+      printf ("RGB colour modifications took %ld milliseconds\n", t);
+    }
+  }
+
+  pthread_exit((void *)out);
+}
+
 
 int main( int argc, char ** argv )
 {
-  const char *kernel = NULL; // Interpolation kernel
   int cpi; // Channels per image
   int n;
   int npix_in;
@@ -67,8 +138,6 @@ int main( int argc, char ** argv )
   int pwidth;
   timeval tv1,tv2,tv3;
   long t;
-  float saturation = 1.0;
-  float gamma=1.0;
   int nimages = 6;
   char op[6] = {'F', 'B', 'D', 'L', 'R', 'U'};
 
@@ -77,19 +146,22 @@ int main( int argc, char ** argv )
     return (EXIT_SUCCESS);
   }
 
-  while ( (n=getopt (argc, argv, "a:c:dg:hik:o:pr:s:t:v")) != -1) {
+  while ( (n=getopt (argc, argv, "a:b:c:dg:hik:o:pr:s:t:v")) != -1) {
     switch (n) {
     case 'a':
       aperture=atof (optarg); 
       break;
+    case 'b':
+      brightcorr=atof (optarg); 
+      break;
     case 'c':
-      saturation=atof (optarg); 
+      contrastcorr=atof (optarg); 
       break;
     case 'd':
       discard_alpha = true; 
       break;
     case 'g':
-      gamma=atof (optarg); 
+      gammacorr=atof (optarg); 
       break;
     case 'h':
       Help ();
@@ -108,7 +180,7 @@ int main( int argc, char ** argv )
 	  || !strcmp(optarg, "hann")))
 	printf ("Unrecognized interpolation kernel %s\n", optarg);
       else
-	kernel = optarg;
+	kerneltype = optarg;
       break;
     case 'o':
       if (!strcasecmp(optarg, "png"))
@@ -172,6 +244,65 @@ int main( int argc, char ** argv )
   int oldwidth = 0;
   int oldheight = 0;
 
+#ifdef HAVE_GTK
+  cairo_surface_t *surface 
+    //    = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, outwidth, outheight);
+    = cairo_image_surface_create (CAIRO_FORMAT_A8, outwidth, outheight);
+  cairo_t *cr = cairo_create (surface);
+  cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0.0); //BACKGROUND
+  cairo_paint (cr);
+
+  char b[32];
+  PangoLayout *layout = pango_cairo_create_layout (cr);
+  pango_layout_set_alignment (layout, PANGO_ALIGN_LEFT);
+  pango_cairo_update_layout (cr, layout);
+  
+  int fsize = 20*outheight/1408;
+  sprintf (&b[0], "Sans Bold %d", fsize);
+  PangoFontDescription *desc = pango_font_description_from_string (&b[0]);
+  pango_layout_set_font_description (layout, desc);
+  pango_font_description_free (desc);
+  cairo_set_source_rgb (cr, 1, 0, 0);
+  
+  sprintf (&b[0], "K:%s", kerneltype);
+  pango_layout_set_text (layout, &b[0], -1);
+  cairo_move_to (cr, fsize*1.5, outheight-fsize*9);
+  pango_cairo_show_layout (cr, layout);
+  
+  sprintf (&b[0], "A:%.1f", aperture);
+  pango_layout_set_text (layout, &b[0], -1);
+  cairo_move_to (cr, fsize*1.5, outheight-fsize*7.5);
+  pango_cairo_show_layout (cr, layout);
+  
+  sprintf (&b[0], "T:%.2f R:%.1f", beta, alpha);
+  pango_layout_set_text (layout, &b[0], -1);
+  cairo_move_to (cr, fsize*1.5, outheight-fsize*6);
+  pango_cairo_show_layout (cr, layout);
+  
+  if (saturation != 1.0)
+    sprintf (&b[0], "S:%.2f (HSB)", saturation);
+  else
+    sprintf (&b[0], "S:%.2f (RGB)", saturation);
+  pango_layout_set_text (layout, &b[0], -1);
+  cairo_move_to (cr, fsize*1.5, outheight-fsize*4.25);
+  pango_cairo_show_layout (cr, layout);
+  
+  sprintf (&b[0], "G:%.3f B:%.1f C:%.1f", gammacorr, brightcorr, contrastcorr);
+  pango_layout_set_text (layout, &b[0], -1);
+  cairo_move_to (cr, fsize*1.5, outheight-fsize*2.5);
+  pango_cairo_show_layout (cr, layout);
+
+    
+  int fsize1 = 30*outheight/1408;
+  sprintf (&b[0], "Sans Bold %d", fsize1);
+  desc = pango_font_description_from_string (&b[0]);
+  pango_layout_set_font_description (layout, desc);
+  pango_font_description_free (desc);
+
+  cairo_rectangle (cr, outwidth*0.5, outheight*0.8, outwidth*0.5, outheight*0.2);
+  //cairo_clip(cr);
+#endif
+
   for (unsigned index=0; index<ffiles.size(); index++) {
     if (verbose)
       gettimeofday (&tv1, NULL);
@@ -230,7 +361,7 @@ int main( int argc, char ** argv )
 	gettimeofday (&tv1, NULL);
       if (index != 0)
 	FreeTrans ();
-      CalcTrans (front->width, front->height, alpha, beta, kernel);
+      CalcTrans (front->width, front->height, alpha, beta, kerneltype);
       if (verbose) {
 	gettimeofday (&tv2, NULL);
 	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
@@ -239,40 +370,65 @@ int main( int argc, char ** argv )
 	gettimeofday (&tv1, NULL);
       }
     }
-    if (verbose)
-      gettimeofday (&tv1, NULL);
 
-    Image *out = image_warp_generic(front);
-    image_warp_generic(back,  out);
-    image_warp_generic(left,  out);
-    image_warp_generic(right, out);
-    image_warp_generic(up,    out);
-    image_warp_generic(down,  out);
-    
-    if (verbose) {
-      gettimeofday (&tv2, NULL);
-      t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
-      printf ("Interpolations took %ld milliseconds\n", t);
-    }
+    Image *images[6];
+    images[0] = front;
+    images[1] = back;
+    images[2] = left;
+    images[3] = right;
+    images[4] = up;
+    images[5] = down;
 
-    if (saturation!=1.0 | gamma!=1.0) {
-      if (verbose)
-	gettimeofday (&tv1, NULL);
-      out->Modulate (saturation, gamma, 1.0, 0.0);
-      out->ToRGB (); // HACK
-      if (verbose) {
-	gettimeofday (&tv2, NULL);
-	t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
-	printf ("Colour modifications took %ld milliseconds\n", t);
-      }
-    }
+    int rc;
+    pthread_t threads;
+    rc = pthread_create(&threads, NULL, ProcessImages, (void *)&images[0]);
+
+    void *status;
+    rc = pthread_join(threads, &status);
+    Image *out = (Image *)status;
 
     cpi = front->cpi;
+
+    if (verbose)
+      gettimeofday (&tv1, NULL);
+#ifdef HAVE_GTK
+   
+    cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0.0);
+    cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
+  
+    //pango_cairo_update_layout (cr, layout);
+    cairo_fill_preserve (cr);
+    //cairo_paint (cr);
+    cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
+    
+    cairo_set_source_rgba (cr, 1.0, 0.0, 0.0, 1.0);
+    char *dot = strrchr (front->imname, '.');
+    int strlength;
+    if (dot != NULL)
+      strlength = strlen (front->imname) - strlen(dot) - 2;
+    else
+      strlength = -1;
+
+    pango_layout_set_text (layout, front->imname+2, strlength);
+    cairo_move_to (cr, outwidth*0.84, outheight*0.93);
+    pango_cairo_show_layout (cr, layout);
+
+    unsigned char*buf = cairo_image_surface_get_data (surface);
+    //unsigned long*lbuf = (unsigned long*)buf;
+    for (int i=0; i<outwidth*outheight; i++) {
+      if (buf[i]!=0) {
+	int indx = i % outwidth;
+	int indy = i / outwidth;
+	int ind = indx + (outheight-indy-1)*outwidth;
+	out->red[ind]=buf[i];
+	out->green[ind]=buf[i];
+	out->blue[ind]=buf[i];
+      }
+    }
+#endif
     
     // Construct and save output image
     // SaveImage (const Image *out, const Image *front, bool)
-    if (verbose)
-      gettimeofday (&tv1, NULL);
     FIBITMAP *outbitmap ;
     if (front->bpp==32 && discard_alpha) {
       outbitmap = FreeImage_Allocate (outwidth, outheight, 24);
@@ -307,6 +463,11 @@ int main( int argc, char ** argv )
     }
     int ss = strlen(front->imname)-1;
    
+    //FreeImage_AdjustColors (outbitmap, brightness, contrast, gamma, FALSE);
+    // FreeImage_AdjustGamma (outbitmap, 1.3);
+    // FreeImage_AdjustBrightness (outbitmap, 0);
+    // FreeImage_AdjustContrast (outbitmap, 50);
+
     while (ss>0) {
       if (front->imname[ss]=='.')
 	break;
@@ -336,6 +497,11 @@ int main( int argc, char ** argv )
 
   FreeImage_DeInitialise ();
   FreeTrans ();
+#ifdef HAVE_GTK
+  g_object_unref (layout);
+  cairo_destroy (cr);
+  cairo_surface_destroy (surface);
+#endif
   
   return EXIT_SUCCESS;
 }
@@ -497,13 +663,14 @@ void Help ()
   printf ("Domemaster %s using FreeImage %s\n\nUSAGE:\n", domever, fiver);
   printf ("  domemaster [options] images\n\nAvailable options:\n");
   printf ("  -a <angle>  Aperture, fulldome is 180 degrees [180]\n");
-  printf ("  -c          Saturation of colours\n");
+  printf ("  -b <value>  Modify brightness\n");
+  printf ("  -c <value>  Modify contrast\n");
   printf ("  -d          Disable alpha channel\n");
   printf ("  -g <value>  Ably gamma correction to the image\n");
   printf ("  -h          Print this help message\n");
   printf ("  -i          Turn interpolation off\n");
   printf ("  -k <kernel> Select interpolation kernel. Possible values are\n"
-	  "              tanh, sinc, sinc2, lanzcos, hamming, hann. [tanh]\n");
+	  "              tanh, sinc, sinc2, lanczos, hamming, hann. [sinc]\n");
   printf ("  -o <format> Output file format, possible values png, bmp, targa, jpeg. [png]\n");
   printf ("  -p          Disable padding\n");
   printf ("  -r <angle>  Rotation angle [0.0]\n");
