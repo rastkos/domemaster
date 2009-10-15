@@ -19,7 +19,9 @@ class Image {
   Image (const char *, int);
   Image (int, int, int);
   ~Image ();
-  void Modulate (float, float, float, float);
+  void Modulate (float, float, float);
+  void ModulateHSB (float, float, float, float);
+
   void Histogram (float);
   void ToHSB ();
   void ToRGB ();
