@@ -21,6 +21,17 @@ AC_CHECK_LIB(freeimage, FreeImage_Load, [LIBS="$LIBS -lfreeimage -lm"],
   [AC_MSG_ERROR([Cannot find libfreeimage])]
 )
 
+dnl ====== pthread ===================================
+AC_CHECK_LIB(pthread, pthread_create, [LIBS="$LIBS -lpthread"],
+  [AC_MSG_ERROR([Cannot find libpthread])]
+)
+
+dnl ====== gtk =================================
+PKG_CHECK_MODULES(GTK, [gtk+-2.0], [ AC_DEFINE([HAVE_GTK], [1], [Description]) 
+ CXXFLAGS="$CXXFLAGS $GTK_CFLAGS"
+ LIBS="$LIBS $GTK_LIBS"],
+ [AC_MSG_WARN([Cannot use GTK])])
+
 dnl ====== Needed in Solaris/SunOS =============
 AC_CHECK_LIB(socket, socket, [LIBS="$LIBS -lsocket"])
 AC_CHECK_FUNCS(gethostbyname, , [AC_CHECK_LIB(nsl, gethostbyname), , LIBS="$LIBS -lnsl"])
@@ -36,8 +47,8 @@ Configuration:
   Detected OS:      ${host_os}
   Software version: ${VERSION}
   Install path:     ${prefix}
-  Compiler:         ${CC}
-  Compiler flags:   ${CFLAGS}
+  Compiler:         ${CXX}
+  Compiler flags:   ${CXXFLAGS}
   Linker flags:     ${LIBS}
 
 "
