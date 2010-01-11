@@ -80,6 +80,23 @@ float brightcorr=0.0;
 float contrastcorr=0.0;
 const char *kerneltype = "sinc"; // Interpolation kernel
 
+// pthread_mutex_t outputmutex = PTHREAD_MUTEX_INITIALIZER;
+// std::queue<Image *> ImagesToSave;
+
+// void * SaveImages (void * thread_data) 
+// {
+//   while (true) {
+//     Image *out = NULL;
+
+//     pthread_mutex_lock (outputmutex);
+//     if (ImagesToSave.size() > 0)
+//       out = ImagesToSave.pop();
+//     pthread_mutex_unlock (outputmutex);
+
+//     if (out != NULL)
+
+//   }
+// }
 
 void * ProcessImages (void * thread_data)
 {
@@ -117,7 +134,6 @@ void * ProcessImages (void * thread_data)
     if (verbose)
       gettimeofday (&tv1, NULL);
     out->Modulate (brightcorr, contrastcorr, gammacorr);
-    //out->ToRGB (); // HACK
     if (verbose) {
       gettimeofday (&tv2, NULL);
       long t = (tv2.tv_sec - tv1.tv_sec)*1000 +(tv2.tv_usec - tv1.tv_usec)/1000;
@@ -246,7 +262,6 @@ int main( int argc, char ** argv )
 
 #ifdef HAVE_GTK
   cairo_surface_t *surface 
-    //    = cairo_image_surface_create (CAIRO_FORMAT_ARGB32, outwidth, outheight);
     = cairo_image_surface_create (CAIRO_FORMAT_A8, outwidth, outheight);
   cairo_t *cr = cairo_create (surface);
   cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0.0); //BACKGROUND
@@ -300,7 +315,6 @@ int main( int argc, char ** argv )
   pango_font_description_free (desc);
 
   cairo_rectangle (cr, outwidth*0.5, outheight*0.8, outwidth*0.5, outheight*0.2);
-  //cairo_clip(cr);
 #endif
 
   for (unsigned index=0; index<ffiles.size(); index++) {
@@ -391,14 +405,12 @@ int main( int argc, char ** argv )
 
     if (verbose)
       gettimeofday (&tv1, NULL);
+
 #ifdef HAVE_GTK
-   
     cairo_set_source_rgba (cr, 0.0, 0.0, 0.0, 0.0);
     cairo_set_operator (cr, CAIRO_OPERATOR_CLEAR);
   
-    //pango_cairo_update_layout (cr, layout);
     cairo_fill_preserve (cr);
-    //cairo_paint (cr);
     cairo_set_operator (cr, CAIRO_OPERATOR_OVER);
     
     cairo_set_source_rgba (cr, 1.0, 0.0, 0.0, 1.0);
@@ -463,11 +475,6 @@ int main( int argc, char ** argv )
     }
     int ss = strlen(front->imname)-1;
    
-    //FreeImage_AdjustColors (outbitmap, brightness, contrast, gamma, FALSE);
-    // FreeImage_AdjustGamma (outbitmap, 1.3);
-    // FreeImage_AdjustBrightness (outbitmap, 0);
-    // FreeImage_AdjustContrast (outbitmap, 50);
-
     while (ss>0) {
       if (front->imname[ss]=='.')
 	break;
