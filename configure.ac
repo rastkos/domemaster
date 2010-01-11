@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([domemaster], [0.4.1], [reunanen@ftml.net])
+AC_INIT([domemaster], [0.4.2], [reunanen@ftml.net])
 AC_CONFIG_HEADERS([config.h])
 
 AC_CONFIG_AUX_DIR([admin])
