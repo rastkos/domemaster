@@ -98,7 +98,6 @@ float  * kernel ;
 /*--------------------------------------------------------------------------*/
 Image* image_warp_generic (const Image *inimage, Image *outimage1)
 {
-  //image_t    * image_out ;
   Image *outimage;
   int          i, j, k ;
   int          lx_out, ly_out ;
@@ -224,17 +223,6 @@ Image* image_warp_generic (const Image *inimage, Image *outimage1)
       px = (int)x ;
       py = (int)y ;
      
-//       if ((px < 1) ||
-// 	  (px > (sizex-3)) ||
-// 	  (py < 1) ||
-// 	  (py > (sizey-3))) {
-// 	(outimage->red)[i+j*lx_out] = 0.0 ;
-// 	outimage->green[i+j*lx_out] = 0.0 ;
-// 	outimage->blue[i+j*lx_out] = 0.0 ;
-// 	if (outimage->alpha != NULL)
-// 	  outimage->alpha[i+j*lx_out] = 0.0 ;
-//       }
-//       else {
       if ((px >= 1) && (px <= (sizex-3)) && (py >= 1) && (px <= (sizey-3))) {
 	/* Now feed the positions for the closest 16 neighbors  */
 	pos = px + py * sizex ;
@@ -624,26 +612,16 @@ void reverse_tanh_kernel(float * data, int nn)
   written into sply.
  */
 /*--------------------------------------------------------------------------*/
-int function1d_natural_spline( pixelvalue *x, pixelvalue *y,
-    	int 			len, pixelvalue	* 	splx, pixelvalue	* 	sply,
-    	int 			spllen)
+int function1d_natural_spline( pixelvalue *x, pixelvalue *y, int len, 
+			       pixelvalue *splx, pixelvalue *sply,
+			       int spllen)
 {
-  int 			end;
-  int 			loc,
-    found;
-  register int 	i,
-    j,
-    n;
-  double 		*	h;			/* vector of deltas in x */
-  double 		*	alpha;
-  double 		*	l,
-    *	mu,
-    *	z,
-    *	a,
-    *	b,
-    *	c,
-    *	d,
-    v;
+  int end;
+  int loc, found;
+  register int 	i, j, n;
+  double *h;			/* vector of deltas in x */
+  double *alpha;
+  double *l, *mu, *z, *a, *b, *c, *d, v;
   
   end = len - 1;
   
@@ -803,6 +781,7 @@ void CalcTrans (int inwidth1, int inheight1, float alpha, float beta,
       (xcoord[i])[j] = -1.0;
       (ycoord[i])[j] = -1.0;
     }
+    
     umin[i] = outwidth;
     umax[i] = 0;
     vmin[i] = outheight;

@@ -26,14 +26,12 @@ Image::Image (int w, int h, int b)
   else
     cpi=3;
 
-  for (int i=0;i<width*height;i++) {
-    red[i] = 0.0;
-    blue[i] = 0.0;
-    green[i] = 0.0;
-  }
+  memset (red, 0, width*height*sizeof(float));
+  memset (blue, 0, width*height*sizeof(float));
+  memset (green, 0, width*height*sizeof(float));
+
   if (alpha!=NULL)
-    for (int i=0;i<width*height;i++) 
-      alpha[i] = 0.0;  
+    memset (alpha, 0, width*height*sizeof(float));
 }
 
 Image::Image (const char *name, int npad)
